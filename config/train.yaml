@@ -1,0 +1,27 @@
+project_name: "Audio Video Synchronization"
+mode: "train"
+pretrain_model: ~
+exp_dir: "exp"
+exp_num: "0"
+save_step: 1
+valid_step: 10
+
+epoch: 1000
+batch_size: 2
+num_workers: 16
+resolution: 256
+face_lr: 0.001
+face_gamma: 0.99
+sync_lr: 0.01
+sync_gamma: 0.9
+gpu: True
+wandb: False
+batch_first: True
+
+train_list: "metadata/train.txt"
+val_list: "metadata/val.txt"
+test_list: "metadata/test.txt"
+max_size: 10000
+face_emb: 40
+voice_emb: 256
+n_mfcc: 39

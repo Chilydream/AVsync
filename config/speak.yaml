@@ -1,0 +1,25 @@
+project_name: "Speak or Silence"
+mode: "train"
+pretrain_model: ~
+exp_dir: "exp_speak"
+exp_num: "0"
+save_step: 1
+valid_step: 1000
+
+epoch: 1000
+batch_size: 4
+num_workers: 8
+resolution: 256
+face_lr: 0.001
+face_gamma: 0.99
+speak_lr: 0.01
+speak_gamma: 0.9
+gpu: True
+wandb: False
+
+train_list: "metadata/lab_train.txt"
+val_list: "metadata/lab_val.txt"
+test_list: "metadata/lab_test.txt"
+face_eb: 256
+voice_eb: 256
+n_mfcc: 39

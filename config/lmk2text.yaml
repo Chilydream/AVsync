@@ -1,0 +1,32 @@
+project_name: "Lmk to Text"
+mode: "train"
+pretrain_model: ~
+exp_dir: "exp_lmk2t"
+exp_num: "000"
+save_step: 1
+valid_step: 0
+lmk_thread: 0
+
+epoch: 1000
+batch_size: 16
+num_workers: 12
+resolution: 256
+img2lip_lr: 0.00005
+img2lip_gamma: 0.99
+lip2t_lr: 0.00005
+lip2t_gamma: 0.99
+gpu: True
+wandb: False
+batch_first: True
+ddp_flag: False
+
+class_lambda: 5.0
+triplet_lambda: 1.0
+
+train_list: "metadata/LRW_train_3090.txt"
+val_list: "metadata/LRW_val_3090.txt"
+test_list: "metadata/LRW_test_3090.txt"
+max_size: 0
+lip_emb: 256
+lmk_emb: 40
+triplet_margin: 1.0
