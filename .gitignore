@@ -14,3 +14,4 @@ pretrain_model
 *.pt
 *.pth
 .idea/vcs.xml
+third_party/HRNet/.gitignore
