@@ -99,9 +99,6 @@ def main():
 	# ============================模型载入===============================
 	print('%sStart loading model%s'%('='*20, '='*20))
 
-	model_hrnet = get_model_by_name('300W', root_models_path='pretrain_model')
-	model_hrnet = model_hrnet.to(run_device).eval()
-
 	model_lmk2lip = Lmk2LipModel(lmk_emb=args.lmk_emb, lip_emb=args.lip_emb, stride=1)
 	model_lip2t = Lip2T_fc_Model(args.lip_emb, n_class=500)
 	model_list = [model_lmk2lip, model_lip2t]
@@ -211,13 +208,12 @@ def main():
 		batch_cnt = 0
 		epoch_timer.set_start_time(time.time())
 		for data in train_loader:
-			a_data, p_data, n_data, p_wid, n_wid = data
-			apn_data = torch.cat((a_data, p_data, n_data), dim=0)
+			a_lmk, p_lmk, n_lmk, p_wid, n_wid = data
+			apn_lmk = torch.cat((a_lmk, p_lmk, n_lmk), dim=0)
 			apn_wid = torch.cat((p_wid, p_wid, n_wid), dim=0)
-			apn_data = apn_data.to(run_device)
+			apn_lmk = apn_lmk.to(run_device)
 			apn_wid = apn_wid.to(run_device)
-			# apn_data = (3*batch, seq, 3, 256, 256)
-			apn_data.transpose_(1, 0)
+			# apn_lmk = (3*batch, seq, 68, 2)
 			lmk_list = []
 			for i, img_batch in enumerate(apn_data):
 				lmk_batch = get_batch_lmks(model_hrnet, img_batch)
