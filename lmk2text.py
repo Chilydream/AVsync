@@ -11,6 +11,8 @@ import torchvision.transforms as transforms
 import wandb
 import sys
 
+from utils.data_utils.LRWImageLmkTriplet import LRWImageLmkTripletDataLoader
+
 sys.path.append('/home/tliu/fsx/project/AVsync/third_party/yolo')
 sys.path.append('/home/tliu/fsx/project/AVsync/third_party/HRNet')
 
@@ -137,15 +139,13 @@ def main():
 	loader_timer = Meter('Time', 'time', ':3.0f', end='')
 	print('%sStart loading dataset%s'%('='*20, '='*20))
 	loader_timer.set_start_time(time.time())
-	train_loader = LRWImageTripletDataLoader(args.train_list, batch_size,
-	                                         num_workers=args.num_workers,
-	                                         resolution=args.resolution,
-	                                         is_train=True, max_size=0)
+	train_loader = LRWImageLmkTripletDataLoader(args.train_list, batch_size,
+	                                            num_workers=args.num_workers,
+	                                            is_train=True, max_size=0)
 
-	valid_loader = LRWImageTripletDataLoader(args.val_list, batch_size,
-	                                         num_workers=args.num_workers,
-	                                         resolution=args.resolution,
-	                                         is_train=False, max_size=0)
+	valid_loader = LRWImageLmkTripletDataLoader(args.val_list, batch_size,
+	                                            num_workers=args.num_workers,
+	                                            is_train=False, max_size=0)
 	loader_timer.update(time.time())
 	print(f'Batch Num in Train Loader: {len(train_loader)}')
 	print('Finish loading dataset', loader_timer)

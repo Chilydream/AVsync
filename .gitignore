@@ -6,7 +6,7 @@ __pycache__/
 *$py.class
 
 config/__pycache__/
-exp_l2t/
+exp_*/
 test/
 wandb/
 .idea/
@@ -15,3 +15,4 @@ pretrain_model
 *.pth
 .idea/vcs.xml
 third_party/HRNet/.gitignore
+*.log

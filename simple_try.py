@@ -16,9 +16,9 @@ run_device = torch.device("cuda" if args.gpu else "cpu")
 model_hrnet = get_model_by_name('300W', root_models_path='pretrain_model')
 model_hrnet = model_hrnet.to(run_device).eval()
 
-with open('metadata/LRW_train_3090.txt', 'r') as fr:
+with open('metadata/LRW_test_3090.txt', 'r') as fr:
 	lines = fr.readlines()
-	for idx in range(args.lmk_thread, len(lines), 10):
+	for idx in range(len(lines)):
 		line = lines[idx]
 		_, mp4name = line.strip().split('\t')
 		extract_lmk(model_hrnet, mp4name, run_device)
