@@ -18,6 +18,7 @@ import glob
 # from moviepy.editor import VideoFileClip
 import sys
 
+from utils.data_utils.LRWImageLmkTriplet import LRWImageLmkTripletDataLoader
 from utils.extract_wav import extract_wav
 
 # sys.path.append('/home/tliu/fsx/project/AVsync/third_party/yolo')
@@ -37,10 +38,9 @@ from third_party.HRNet.utils_inference import get_model_by_name, get_batch_lmks
 
 args = TrainOptions('config/speech2text.yaml').parse()
 
-with open('metadata/test.txt', 'r') as fr:
-	lines = fr.readlines()
-	for line in lines:
-		_, mp4name = line.strip().split('\t')
-		wavname = mp4name[:-3]+'wav'
-		if not os.path.exists(wavname):
-			extract_wav(mp4name)
+loader = LRWImageLmkTripletDataLoader('metadata/LRW_train_3090', batch_size=args.batch_size,
+									  num_workers=args.num_workers)
+for data in loader:
+	a_lmk, p_lmk, n_lmk, p_wid, n_wid = data
+	print(a_lmk.shape)
+	break
