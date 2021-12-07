@@ -8,7 +8,7 @@ valid_step: 0
 lmk_thread: 0
 
 epoch: 1000
-batch_size: 16
+batch_size: 256
 num_workers: 12
 resolution: 256
 img2lip_lr: 0.00005
@@ -16,7 +16,7 @@ img2lip_gamma: 0.99
 lip2t_lr: 0.00005
 lip2t_gamma: 0.99
 gpu: True
-wandb: False
+wandb: True
 batch_first: True
 ddp_flag: False
 
