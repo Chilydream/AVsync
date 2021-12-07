@@ -36,9 +36,9 @@ from third_party.yolo.yolo_models.yolo import Model as yolo_model
 from third_party.yolo.yolo_utils.util_yolo import face_detect
 from third_party.HRNet.utils_inference import get_model_by_name, get_batch_lmks
 
-args = TrainOptions('config/speech2text.yaml').parse()
+args = TrainOptions('config/lmk2text.yaml').parse()
 
-loader = LRWImageLmkTripletDataLoader('metadata/LRW_train_3090', batch_size=args.batch_size,
+loader = LRWImageLmkTripletDataLoader(args.train_list, batch_size=args.batch_size,
 									  num_workers=args.num_workers)
 for data in loader:
 	a_lmk, p_lmk, n_lmk, p_wid, n_wid = data
