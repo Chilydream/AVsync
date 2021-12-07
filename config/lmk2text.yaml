@@ -11,9 +11,9 @@ epoch: 1000
 batch_size: 256
 num_workers: 12
 resolution: 256
-img2lip_lr: 0.00005
-img2lip_gamma: 0.99
-lip2t_lr: 0.00005
+lmk2lip_lr: 0.0001
+lmk2lip_gamma: 0.99
+lip2t_lr: 0.0001
 lip2t_gamma: 0.99
 gpu: True
 wandb: True

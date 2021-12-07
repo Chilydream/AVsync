@@ -108,15 +108,15 @@ def main():
 		model_iter.to(run_device)
 		model_iter.train()
 
-	optim_img2lip = optim.Adam(model_lmk2lip.parameters(), lr=args.img2lip_lr, betas=(0.9, 0.999))
+	optim_lmk2lip = optim.Adam(model_lmk2lip.parameters(), lr=args.lmk2lip_lr, betas=(0.9, 0.999))
 	optim_lip2t = optim.Adam(model_lip2t.parameters(), lr=args.lip2t_lr, betas=(0.9, 0.999))
 	criterion_class = nn.CrossEntropyLoss()
 	criterion_triplet = nn.TripletMarginLoss(margin=args.triplet_margin)
-	sch_img2lip = optim.lr_scheduler.ExponentialLR(optim_img2lip, gamma=args.img2lip_gamma)
+	sch_lmk2lip = optim.lr_scheduler.ExponentialLR(optim_lmk2lip, gamma=args.lmk2lip_gamma)
 	sch_lip2t = optim.lr_scheduler.ExponentialLR(optim_lip2t, gamma=args.lip2t_gamma)
 	tosave_list = ['model_lmk2lip', 'model_lip2t',
-	               'optim_img2lip', 'optim_lip2t',
-	               'sch_img2lip', 'sch_lip2t']
+	               'optim_lmk2lip', 'optim_lip2t',
+	               'sch_lmk2lip', 'sch_lip2t']
 	if args.wandb:
 		for model_iter in model_list:
 			wandb.watch(model_iter)
@@ -227,11 +227,11 @@ def main():
 			correct_num_class = torch.sum(torch.argmax(apn_pred, dim=1) == apn_wid).item()
 
 			# ==========================反向传播===============================
-			optim_img2lip.zero_grad()
+			optim_lmk2lip.zero_grad()
 			optim_lip2t.zero_grad()
 			loss_final = args.class_lambda*loss_class+args.triplet_lambda*loss_triplet
 			loss_final.backward()
-			optim_img2lip.step()
+			optim_lmk2lip.step()
 			optim_lip2t.step()
 
 			# ==========计量更新============================
@@ -246,10 +246,10 @@ def main():
 			      f'{epoch_loss_class}{epoch_loss_triplet}',
 			      sep='', end='     ')
 
-		sch_img2lip.step()
+		sch_lmk2lip.step()
 		sch_lip2t.step()
 		print('')
-		print(f'Current Model M2V Learning Rate is {sch_img2lip.get_last_lr()}')
+		print(f'Current Model M2V Learning Rate is {sch_lmk2lip.get_last_lr()}')
 		print(f'Current Model V2T Learning Rate is {sch_lip2t.get_last_lr()}')
 		print('Epoch:', epoch, epoch_loss_final, epoch_acc_class,
 		      file=file_train_log)
