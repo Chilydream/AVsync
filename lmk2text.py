@@ -191,9 +191,15 @@ def main():
 	elif args.mode.lower() in ['continue']:
 		print('Loading pretrained model', args.pretrain_model)
 		model_ckpt = torch.load(args.pretrain_model)
-		for item_str in tosave_list:
-			item_model = locals()[item_str]
-			item_model.load_state_dict(model_ckpt[item_str])
+		# for item_str in tosave_list:
+		# 	item_model = locals()[item_str]
+		# 	item_model.load_state_dict(model_ckpt[item_str])
+		model_lmk2lip.load_state_dict(model_ckpt['model_img2lip'])
+		model_lip2t.load_state_dict(model_ckpt['model_lip2t'])
+		optim_lmk2lip.load_state_dict(model_ckpt['optim_img2lip'])
+		optim_lip2t.load_state_dict(model_ckpt['optim_lip2t'])
+		sch_lmk2lip.load_state_dict(model_ckpt['sch_img2lip'])
+		sch_lip2t.load_state_dict(model_ckpt['sch_lip2t'])
 		start_epoch = model_ckpt['epoch']
 		file_train_log = open(path_train_log, 'a')
 	elif args.mode.lower() in ['train']:
