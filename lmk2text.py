@@ -212,20 +212,11 @@ def main():
 			apn_lmk = torch.cat((a_lmk, p_lmk, n_lmk), dim=0)
 			apn_wid = torch.cat((p_wid, p_wid, n_wid), dim=0)
 			apn_lmk = apn_lmk.to(run_device)
-			apn_wid = apn_wid.to(run_device)
-			# apn_lmk = (3*batch, seq, 68, 2)
-			lmk_list = []
-			for i, img_batch in enumerate(apn_data):
-				lmk_batch = get_batch_lmks(model_hrnet, img_batch)
-				lmk_flat = torch.flatten(lmk_batch[:, 48:68, :], start_dim=1)
-				lmk_list.append(lmk_flat)
-			apn_lmk = torch.stack(lmk_list, dim=0)
-			# apn_lmk = (seq, 3*b, 40)
-			apn_lmk.transpose_(1, 0)
 			# apn_lmk = (3*b, seq, 40)
-			apn_lmk = apn_lmk.to(run_device)
+			apn_wid = apn_wid.to(run_device)
 
 			apn_lip = model_lmk2lip(apn_lmk)
+			# apn_lip = (3*b, 256)
 			apn_pred = model_lip2t(apn_lip)
 			# ======================计算 Triplet损失===========================
 			a_lip, p_lip, n_lip = torch.chunk(apn_lip, 3, dim=0)
