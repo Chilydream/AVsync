@@ -27,7 +27,7 @@ from utils.Meter import Meter
 from third_party.HRNet.utils_inference import get_model_by_name, get_batch_lmks
 
 
-def evaluate(model_img2lip, model_lip2t, criterion_class, criterion_triplet, loader, args):
+def evaluate(model_lmk2lip, model_lip2t, criterion_class, criterion_triplet, loader, args):
 	run_device = torch.device("cuda:0" if args.gpu else "cpu")
 
 	val_loss_class = Meter('Class Loss', 'avg', ':.4f')
@@ -39,29 +39,28 @@ def evaluate(model_img2lip, model_lip2t, criterion_class, criterion_triplet, loa
 
 	print('\tEvaluating Result:')
 	for data in loader:
-		a_data, p_data, n_data, p_wid, n_wid = data
-		apn_data = torch.cat((a_data, p_data, n_data), dim=0)
-		apn_data.transpose_(2, 1)
-		apn_data = apn_data.to(run_device)
+		a_lmk, p_lmk, n_lmk, p_wid, n_wid = data
+		apn_lmk = torch.cat((a_lmk, p_lmk, n_lmk), dim=0)
 		apn_wid = torch.cat((p_wid, p_wid, n_wid), dim=0)
+		apn_lmk = apn_lmk.to(run_device)
+		# apn_lmk = (3*b, seq, 40)
 		apn_wid = apn_wid.to(run_device)
 
-		apn_lip = model_img2lip(apn_data)
-		apn_word = model_lip2t(apn_lip)
-
+		apn_lip = model_lmk2lip(apn_lmk)
+		# apn_lip = (3*b, 256)
+		apn_pred = model_lip2t(apn_lip)
 		# ======================计算 Triplet损失===========================
-		loss_triplet = criterion_triplet(apn_data[:args.batch_size],
-		                                 apn_data[args.batch_size:2*args.batch_size],
-		                                 apn_data[2*args.batch_size:])
+		a_lip, p_lip, n_lip = torch.chunk(apn_lip, 3, dim=0)
+		loss_triplet = criterion_triplet(a_lip, p_lip, n_lip)
 
 		# ======================计算唇部特征单词分类损失===========================
-		loss_class = criterion_class(apn_word, apn_wid)
-		correct_num_class = torch.sum(torch.argmax(apn_word, dim=1, keepdim=False) == apn_wid).item()
+		loss_class = criterion_class(apn_pred, apn_wid)
+		correct_num_class = torch.sum(torch.argmax(apn_pred, dim=1) == apn_wid).item()
 
+		# ==========================反向传播===============================
 		loss_final = args.class_lambda*loss_class+args.triplet_lambda*loss_triplet
-
 		# ==========计量更新============================
-		val_acc_class.update(correct_num_class*100/args.batch_size/3)
+		val_acc_class.update(correct_num_class*100/len(apn_wid))
 		val_loss_class.update(loss_class.item())
 		val_loss_triplet.update(loss_triplet.item())
 		val_loss_final.update(loss_final.item())
@@ -154,9 +153,15 @@ def main():
 	if args.mode.lower() in ['test', 'valid', 'eval', 'val', 'evaluate']:
 		del train_loader
 		model_ckpt = torch.load(args.pretrain_model)
-		for item_str in tosave_list:
-			item_model = locals()[item_str]
-			item_model.load_state_dict(model_ckpt[item_str])
+		# for item_str in tosave_list:
+		# 	item_model = locals()[item_str]
+		# 	item_model.load_state_dict(model_ckpt[item_str])
+		model_lmk2lip.load_state_dict(model_ckpt['model_img2lip'])
+		model_lip2t.load_state_dict(model_ckpt['model_lip2t'])
+		optim_lmk2lip.load_state_dict(model_ckpt['optim_img2lip'])
+		optim_lip2t.load_state_dict(model_ckpt['optim_lip2t'])
+		sch_lmk2lip.load_state_dict(model_ckpt['sch_img2lip'])
+		sch_lip2t.load_state_dict(model_ckpt['sch_lip2t'])
 		del model_ckpt
 		print(f'\n{"="*20}Start Evaluating{"="*20}')
 		if args.mode.lower() in ['valid', 'val', 'eval', 'evaluate']:
@@ -235,7 +240,7 @@ def main():
 			optim_lip2t.step()
 
 			# ==========计量更新============================
-			epoch_acc_class.update(correct_num_class*100/batch_size/3)
+			epoch_acc_class.update(correct_num_class*100/len(apn_wid))
 			epoch_loss_class.update(loss_class.item())
 			epoch_loss_triplet.update(loss_triplet.item())
 			epoch_loss_final.update(loss_final.item())

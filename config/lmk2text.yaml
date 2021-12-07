@@ -4,8 +4,7 @@ pretrain_model: ~
 exp_dir: "exp_lmk2t"
 exp_num: "000"
 save_step: 1
-valid_step: 0
-lmk_thread: 0
+valid_step: 1
 
 epoch: 1000
 batch_size: 256
