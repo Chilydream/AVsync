@@ -25,7 +25,13 @@ class Lmk2LipModel(nn.Module):
 			nn.Linear(512, 512),
 			nn.BatchNorm1d(512),
 			nn.ReLU(True),
-			nn.Linear(512, lip_emb)
+			nn.Linear(512, lip_emb),
+			nn.BatchNorm1d(512),
+			nn.ReLU(True),
+			nn.Linear(512, lip_emb),
+			nn.BatchNorm1d(512),
+			nn.ReLU(True),
+			nn.Linear(512, lip_emb),
 		)
 		# lip = (b, seq, lip_emb)
 		# lip_T = (b, lip_emb, seq)
