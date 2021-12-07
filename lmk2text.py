@@ -194,6 +194,7 @@ def main():
 		# for item_str in tosave_list:
 		# 	item_model = locals()[item_str]
 		# 	item_model.load_state_dict(model_ckpt[item_str])
+		print(model_ckpt.keys())
 		model_lmk2lip.load_state_dict(model_ckpt['model_img2lip'])
 		model_lip2t.load_state_dict(model_ckpt['model_lip2t'])
 		optim_lmk2lip.load_state_dict(model_ckpt['optim_img2lip'])
