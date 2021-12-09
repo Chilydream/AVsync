@@ -72,24 +72,25 @@ class SyncModel2(nn.Module):
 		self.seq_len = seq_len
 
 		# x = (b, seq, lip_emb+voice_emb)
-		self.model = nn.Sequential(nn.Linear(lip_emb+voice_emb, 512),
-		                           nn.BatchNorm1d(512),
-		                           nn.ReLU(True),
-		                           nn.Linear(512, 256),
-		                           nn.BatchNorm1d(256),
-		                           nn.ReLU(True),
-		                           nn.Linear(256, 128),
-		                           nn.BatchNorm1d(128),
-		                           nn.ReLU(True),
-		                           nn.Linear(128, 64),
-		                           nn.BatchNorm1d(64),
-		                           nn.ReLU(True),
-		                           nn.Linear(64, 32),
-		                           nn.BatchNorm1d(32),
-		                           nn.ReLU(True),
-		                           nn.Linear(32, 2),
-		                           nn.Tanh(),
-		                           )
+		self.model = nn.Sequential(
+			nn.Linear(lip_emb+voice_emb, 512),
+			nn.BatchNorm1d(512),
+			nn.ReLU(True),
+			nn.Linear(512, 256),
+			nn.BatchNorm1d(256),
+			nn.ReLU(True),
+			nn.Linear(256, 128),
+			nn.BatchNorm1d(128),
+			nn.ReLU(True),
+			nn.Linear(128, 64),
+			nn.BatchNorm1d(64),
+			nn.ReLU(True),
+			nn.Linear(64, 32),
+			nn.BatchNorm1d(32),
+			nn.ReLU(True),
+			nn.Linear(32, 2),
+			nn.Softmax(-1),
+		)
 
 	def forward(self, lip, voice):
 		# x.shpae = (batch, lip_emb+voice_emb)

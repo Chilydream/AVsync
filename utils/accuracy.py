@@ -35,8 +35,8 @@ def get_rand_idx(batch_size):
 	return new_idx
 
 
-def get_gt_label(wid_label: torch.Tensor, new_idx):
+def get_gt_label(wid_label: torch.Tensor, new_idx, eq_flag=1, neq_flag=0):
 	assert len(wid_label) == len(new_idx), ValueError(f'Size of wid_label should match new_idx, '
 	                                                  f'but got {len(wid_label)} and {len(new_idx)}')
-	gt_label = torch.where(wid_label == wid_label[new_idx], 1., -1.)
+	gt_label = torch.where(wid_label == wid_label[new_idx], eq_flag, neq_flag)
 	return gt_label

@@ -12,7 +12,9 @@ import wandb
 import sys
 
 from model.SyncModel import SyncModel2
+from utils.accuracy import get_new_idx, get_gt_label
 from utils.data_utils.LRWImageLmkTriplet import LRWImageLmkTripletDataLoader
+from utils.data_utils.LRWRaw import LRWDataLoader
 from utils.data_utils.LRWTriplet import LRWTripletDataLoader
 
 sys.path.append('/home/tliu/fsx/project/AVsync/third_party/yolo')
@@ -29,11 +31,10 @@ from utils.Meter import Meter
 from third_party.HRNet.utils_inference import get_model_by_name, get_batch_lmks
 
 
-def evaluate(model_lmk2lip, model_lip2t, criterion_class, criterion_triplet, loader, args):
+def evaluate(model_lmk2lip, model_wav2v, model_sync, criterion_class, loader, args):
 	run_device = torch.device("cuda:0" if args.gpu else "cpu")
 
 	val_loss_class = Meter('Class Loss', 'avg', ':.4f')
-	val_loss_triplet = Meter('Triplet Loss', 'avg', ':.4f')
 	val_loss_final = Meter('Final Loss', 'avg', ':.4f')
 	val_acc_class = Meter('Class ACC', 'avg', ':.2f', '%,')
 	val_timer = Meter('Time', 'time', ':3.0f')
@@ -41,39 +42,32 @@ def evaluate(model_lmk2lip, model_lip2t, criterion_class, criterion_triplet, loa
 
 	print('\tEvaluating Result:')
 	for data in loader:
-		a_lmk, p_lmk, n_lmk, p_wid, n_wid = data
-		apn_lmk = torch.cat((a_lmk, p_lmk, n_lmk), dim=0)
-		apn_wid = torch.cat((p_wid, p_wid, n_wid), dim=0)
-		apn_lmk = apn_lmk.to(run_device)
-		# apn_lmk = (3*b, seq, 40)
-		apn_wid = apn_wid.to(run_device)
+		a_wav, a_lmk, a_wid = data
+		a_lip = model_lmk2lip(a_lmk)
+		a_voice = model_wav2v(a_wav)
 
-		apn_lip = model_lmk2lip(apn_lmk)
-		# apn_lip = (3*b, 256)
-		apn_pred = model_lip2t(apn_lip)
-		# ======================计算 Triplet损失===========================
-		a_lip, p_lip, n_lip = torch.chunk(apn_lip, 3, dim=0)
-		loss_triplet = criterion_triplet(a_lip, p_lip, n_lip)
+		new_idx = get_new_idx(args.batch_size)
+		a_voice = a_voice[:, new_idx, :]
+		label_gt = get_gt_label(a_wid, new_idx).to(run_device)
+		label_pred = model_sync(a_lip, a_voice)
 
 		# ======================计算唇部特征单词分类损失===========================
-		loss_class = criterion_class(apn_pred, apn_wid)
-		correct_num_class = torch.sum(torch.argmax(apn_pred, dim=1) == apn_wid).item()
+		loss_class = criterion_class(label_pred, label_gt)
+		correct_num_class = torch.sum(torch.argmax(label_pred, dim=1) == label_gt).item()
 
-		# ==========================反向传播===============================
-		loss_final = args.class_lambda*loss_class+args.triplet_lambda*loss_triplet
+		loss_final = loss_class
+
 		# ==========计量更新============================
-		val_acc_class.update(correct_num_class*100/len(apn_wid))
+		val_acc_class.update(correct_num_class*100/len(label_gt))
 		val_loss_class.update(loss_class.item())
-		val_loss_triplet.update(loss_triplet.item())
 		val_loss_final.update(loss_final.item())
 		val_timer.update(time.time())
 		print(f'\r\tBatch:{val_timer.count:04d}/{len(loader):04d}  {val_timer}{val_loss_final}',
 		      f'{val_acc_class} EMA ACC: {val_acc_class.avg_ema:.2f}%, ',
-		      f'{val_loss_class}{val_loss_triplet}',
+		      f'{val_loss_class}',
 		      sep='', end='     ')
 
 	val_log = {'val_loss_class': val_loss_class.avg,
-	           'val_loss_triplet': val_loss_triplet.avg,
 	           'val_loss_final': val_loss_final.avg,
 	           'val_acc_class': val_acc_class.avg}
 	return val_log
@@ -114,48 +108,51 @@ def main():
 	optim_wav2v = optim.Adam(model_wav2v.parameters(), lr=args.wav2v_lr, betas=(0.9, 0.999))
 	optim_sync = optim.Adam(model_sync.parameters(), lr=args.sync_lr, betas=(0.9, 0.999))
 	criterion_class = nn.CrossEntropyLoss()
-	criterion_triplet = nn.TripletMarginLoss(margin=args.triplet_margin)
 	sch_lmk2lip = optim.lr_scheduler.ExponentialLR(optim_lmk2lip, gamma=args.lmk2lip_gamma)
 	sch_wav2v = optim.lr_scheduler.ExponentialLR(optim_wav2v, gamma=args.wav2v_gamma)
-	tosave_list = ['model_lmk2lip', 'model_wav2v',
-	               'optim_lmk2lip', 'optim_wav2v',
-	               'sch_lmk2lip', 'sch_wav2v']
+	sch_sync = optim.lr_scheduler.ExponentialLR(optim_sync, gamma=args.sync_gamma)
+	tosave_list = ['model_lmk2lip', 'model_wav2v', 'model_sync',
+	               'optim_lmk2lip', 'optim_wav2v', 'optim_sync',
+	               'sch_lmk2lip', 'sch_wav2v', 'sch_sync']
 	if args.wandb:
 		for model_iter in model_list:
 			wandb.watch(model_iter)
 
 	# ============================度量载入===============================
-	epoch_loss_sync = Meter('Sync Loss', 'avg', ':.4f')
-	epoch_loss_triplet = Meter('Triplet Loss', 'avg', ':.4f')
+	epoch_loss_class = Meter('Sync Loss', 'avg', ':.4f')
 	epoch_loss_final = Meter('Final Loss', 'avg', ':.4f')
-	epoch_acc_sync = Meter('Class ACC', 'avg', ':.2f', '%, ')
+	epoch_acc_sync = Meter('Sync ACC', 'avg', ':.2f', '%, ')
 	epoch_timer = Meter('Time', 'time', ':4.0f')
 
-	epoch_reset_list = [epoch_loss_final, epoch_timer,
-	                    epoch_loss_triplet, epoch_loss_sync, epoch_acc_sync]
-	print('Train Parameters')
-	for key, value in args.__dict__.items():
-		print(f'{key:18}:\t{value}')
-	print('')
+	epoch_reset_list = [epoch_loss_final, epoch_loss_class,
+	                    epoch_acc_sync,
+	                    epoch_timer, ]
+	if args.mode in ('train', 'continue'):
+		print('Train Parameters')
+		for key, value in args.__dict__.items():
+			print(f'{key:18}:\t{value}')
+		print('')
 
 	# ============================数据载入===============================
 	loader_timer = Meter('Time', 'time', ':3.0f', end='')
 	print('%sStart loading dataset%s'%('='*20, '='*20))
 	loader_timer.set_start_time(time.time())
-	train_loader = LRWTripletDataLoader(args.train_list, batch_size,
-	                                    num_workers=args.num_workers,
-	                                    n_mfcc=args.n_mfcc,
-	                                    resolution=args.resolution,
-	                                    is_train=True, max_size=0)
+	train_loader = LRWDataLoader(args.train_list, batch_size,
+	                             num_workers=args.num_workers,
+	                             n_mfcc=args.n_mfcc,
+	                             resolution=args.resolution,
+	                             seq_len=0,
+	                             is_train=True, max_size=0)
 
-	valid_loader = LRWTripletDataLoader(args.val_list, batch_size,
-	                                    num_workers=args.num_workers,
-	                                    n_mfcc=args.n_mfcc,
-	                                    resolution=args.resolution,
-	                                    is_train=False, max_size=0)
+	valid_loader = LRWDataLoader(args.train_list, batch_size,
+	                             num_workers=args.num_workers,
+	                             n_mfcc=args.n_mfcc,
+	                             resolution=args.resolution,
+	                             seq_len=0,
+	                             is_train=False, max_size=0)
 	loader_timer.update(time.time())
 	print(f'Batch Num in Train Loader: {len(train_loader)}')
-	print('Finish loading dataset', loader_timer)
+	print(f'Finish loading dataset {loader_timer}')
 
 	# ========================预加载模型================================
 	if args.mode.lower() in ['test', 'valid', 'eval', 'val', 'evaluate']:
@@ -170,10 +167,10 @@ def main():
 			with torch.no_grad():
 				model_lmk2lip.eval()
 				model_wav2v.eval()
+				model_sync.eval()
 				criterion_class.eval()
-				criterion_triplet.eval()
-				evaluate(model_lmk2lip, model_wav2v,
-				         criterion_class, criterion_triplet,
+				evaluate(model_lmk2lip, model_wav2v, model_sync,
+				         criterion_class,
 				         valid_loader, args)
 		else:
 			del valid_loader
@@ -183,12 +180,13 @@ def main():
 			                                        is_train=False, max_size=0)
 			with torch.no_grad():
 				model_lmk2lip.eval()
-				model_lip2t.eval()
+				model_wav2v.eval()
+				model_sync.eval()
 				criterion_class.eval()
-				criterion_triplet.eval()
-				evaluate(model_lmk2lip, model_lip2t,
-				         criterion_class, criterion_triplet,
+				evaluate(model_lmk2lip, model_wav2v, model_sync,
+				         criterion_class,
 				         test_loader, args)
+		print(f'Finish Evaluation\n\n')
 		return
 	elif args.mode.lower() in ['continue']:
 		print('Loading pretrained model', args.pretrain_model)
@@ -206,7 +204,7 @@ def main():
 	print('Train Parameters', file=file_train_log)
 	for key, value in args.__dict__.items():
 		print(f'{key:18}:\t{value}', file=file_train_log)
-	print('', file=file_train_log)
+	print('\n', file=file_train_log)
 
 	# ============================开始训练===============================
 	print('%sStart Training%s'%('='*20, '='*20))
@@ -215,56 +213,55 @@ def main():
 		batch_cnt = 0
 		epoch_timer.set_start_time(time.time())
 		for data in train_loader:
-			a_lmk, p_lmk, n_lmk, p_wid, n_wid = data
-			apn_lmk = torch.cat((a_lmk, p_lmk, n_lmk), dim=0)
-			apn_wid = torch.cat((p_wid, p_wid, n_wid), dim=0)
-			apn_lmk = apn_lmk.to(run_device)
-			# apn_lmk = (3*b, seq, 40)
-			apn_wid = apn_wid.to(run_device)
+			a_wav, a_lmk, a_wid = data
+			a_lip = model_lmk2lip(a_lmk)
+			a_voice = model_wav2v(a_wav)
+			# todo: 这里是要用综合特征，还是按帧划分的特征？
+			# todo: 这里是否要让 a_lip和 a_voice特征相近？
 
-			apn_lip = model_lmk2lip(apn_lmk)
-			# apn_lip = (3*b, 256)
-			apn_pred = model_lip2t(apn_lip)
-			# ======================计算 Triplet损失===========================
-			a_lip, p_lip, n_lip = torch.chunk(apn_lip, 3, dim=0)
-			loss_triplet = criterion_triplet(a_lip, p_lip, n_lip)
+			new_idx = get_new_idx(args.batch_size)
+			a_voice = a_voice[:, new_idx, :]
+			label_gt = get_gt_label(a_wid, new_idx).to(run_device)
+			label_pred = model_sync(a_lip, a_voice)
 
 			# ======================计算唇部特征单词分类损失===========================
-			loss_class = criterion_class(apn_pred, apn_wid)
-			correct_num_class = torch.sum(torch.argmax(apn_pred, dim=1) == apn_wid).item()
+			loss_class = criterion_class(label_pred, label_gt)
+			correct_num_class = torch.sum(torch.argmax(label_pred, dim=1) == label_gt).item()
 
 			# ==========================反向传播===============================
 			optim_lmk2lip.zero_grad()
-			optim_lip2t.zero_grad()
-			loss_final = args.class_lambda*loss_class+args.triplet_lambda*loss_triplet
+			optim_wav2v.zero_grad()
+			optim_sync.zero_grad()
+			loss_final = loss_class
 			loss_final.backward()
 			optim_lmk2lip.step()
-			optim_lip2t.step()
+			optim_wav2v.step()
+			optim_sync.step()
 
 			# ==========计量更新============================
-			epoch_acc_class.update(correct_num_class*100/len(apn_wid))
+			epoch_acc_sync.update(correct_num_class*100/len(label_gt))
 			epoch_loss_class.update(loss_class.item())
-			epoch_loss_triplet.update(loss_triplet.item())
 			epoch_loss_final.update(loss_final.item())
 			epoch_timer.update(time.time())
 			batch_cnt += 1
 			print(f'\rBatch:{batch_cnt:04d}/{len(train_loader):04d}  {epoch_timer}{epoch_loss_final}',
-			      f'{epoch_acc_class}EMA ACC: {epoch_acc_class.avg_ema:.2f}%, ',
-			      f'{epoch_loss_class}{epoch_loss_triplet}',
+			      f'{epoch_acc_sync}EMA ACC: {epoch_acc_sync.avg_ema:.2f}%, ',
+			      f'{epoch_loss_class}',
 			      sep='', end='     ')
 
 		sch_lmk2lip.step()
-		sch_lip2t.step()
+		sch_wav2v.step()
+		sch_sync.step()
 		print('')
 		print(f'Current Model M2V Learning Rate is {sch_lmk2lip.get_last_lr()}')
-		print(f'Current Model V2T Learning Rate is {sch_lip2t.get_last_lr()}')
-		print('Epoch:', epoch, epoch_loss_final, epoch_acc_class,
+		print(f'Current Model V2T Learning Rate is {sch_wav2v.get_last_lr()}')
+		print(f'Current Model Sync Learning Rate is {sch_sync.get_last_lr()}')
+		print('Epoch:', epoch, epoch_loss_final, epoch_acc_sync,
 		      file=file_train_log)
 		log_dict = {'epoch': epoch,
 		            epoch_loss_final.name: epoch_loss_final.avg,
-		            epoch_loss_triplet.name: epoch_loss_triplet.avg,
 		            epoch_loss_class.name: epoch_loss_class.avg,
-		            epoch_acc_class.name: epoch_acc_class.avg}
+		            epoch_acc_sync.name: epoch_acc_sync.avg}
 		for meter in epoch_reset_list:
 			meter.reset()
 
@@ -285,16 +282,17 @@ def main():
 			with torch.no_grad():
 				# torch.no_grad()不能停止drop_out和 batch_norm，所以还是需要eval
 				model_lmk2lip.eval()
-				model_lip2t.eval()
+				model_wav2v.eval()
+				model_sync.eval()
 				criterion_class.eval()
-				criterion_triplet.eval()
 				try:
-					log_dict.update(evaluate(model_lmk2lip, model_lip2t,
-					                         criterion_class, criterion_triplet, valid_loader, args))
+					log_dict.update(evaluate(model_lmk2lip, model_wav2v, model_sync,
+					                         criterion_class, valid_loader, args))
 				except:
 					print('Evaluating Error')
 				model_lmk2lip.train()
-				model_lip2t.train()
+				model_wav2v.train()
+				model_sync.train()
 				criterion_class.train()
 
 		if args.wandb:

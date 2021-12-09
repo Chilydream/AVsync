@@ -5,8 +5,6 @@ from glob import glob
 import torch
 import yaml
 
-from config.TrainConfig import TRAIN_PARAMETER as TP
-
 
 def str2bool(string):
 	return string.lower()=='true'
