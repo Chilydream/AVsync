@@ -42,12 +42,13 @@ run_device = torch.device('cuda:0')
 model_lmk2lip = Lmk2LipModel(lmk_emb=args.lmk_emb, lip_emb=args.lip_emb, stride=1)
 model_lmk2lip.to(run_device)
 
-loader = LRWImageLmkTripletDataLoader(args.train_list, batch_size=args.batch_size,
-									  num_workers=args.num_workers)
-for data in loader:
-	a_lmk, p_lmk, n_lmk, p_wid, n_wid = data
-	print(a_lmk.shape)
-	apn_lmk = torch.cat((a_lmk, p_lmk, n_lmk), dim=0).to(run_device)
-	apn_lip = model_lmk2lip(apn_lmk)
-	print(apn_lip.shape)
-	break
+with open('metadata/LRW_train_3090.txt', 'r') as fr, open('metadata/LRW_train_3090_lmk.txt', 'w') as fw:
+	lines = fr.readlines()
+	for line in lines:
+		_, mp4name = line.strip().split('\t')
+		lmkname = mp4name[:-3]+'lmk'
+		lmk_tensor = torch.load(lmkname)
+		if lmk_tensor.shape[0] != 29 or lmk_tensor.shape[1] != 68:
+			print(f'Error file {mp4name}, lmk shape: {lmk_tensor.shape}')
+			continue
+		print(line.strip(), file=fw)
