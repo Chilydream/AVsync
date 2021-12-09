@@ -65,35 +65,34 @@ class SyncModel1(nn.Module):
 
 
 class SyncModel2(nn.Module):
-	def __init__(self, face_emb, voice_emb, hid_emb=512, seq_len=29, batch_first=True):
-		assert batch_first
+	def __init__(self, lip_emb, voice_emb, seq_len=29):
 		super(SyncModel2, self).__init__()
-		input_size = face_emb+voice_emb
-		self.batch_first = batch_first
+		self.lip_emb = lip_emb
+		self.voice_emb = voice_emb
 		self.seq_len = seq_len
-		self.hid_emb = hid_emb
-		self.relu = nn.ReLU(inplace=True)
-		self.tanh = nn.Tanh()
-		# self.bn0 = nn.BatchNorm1d(seq_len)
 
-		self.lstm = nn.LSTM(input_size=input_size,
-		                    hidden_size=hid_emb,
-		                    batch_first=batch_first,
-		                    bidirectional=True)
-		self.hn_fc1 = nn.Linear(2*hid_emb, 128)
-		self.hn_fc2 = nn.Linear(128, 32)
-		self.hn_fc3 = nn.Linear(32, 1)
+		# x = (b, seq, lip_emb+voice_emb)
+		self.model = nn.Sequential(nn.Linear(lip_emb+voice_emb, 512),
+		                           nn.BatchNorm1d(512),
+		                           nn.ReLU(True),
+		                           nn.Linear(512, 256),
+		                           nn.BatchNorm1d(256),
+		                           nn.ReLU(True),
+		                           nn.Linear(256, 128),
+		                           nn.BatchNorm1d(128),
+		                           nn.ReLU(True),
+		                           nn.Linear(128, 64),
+		                           nn.BatchNorm1d(64),
+		                           nn.ReLU(True),
+		                           nn.Linear(64, 32),
+		                           nn.BatchNorm1d(32),
+		                           nn.ReLU(True),
+		                           nn.Linear(32, 2),
+		                           nn.Tanh(),
+		                           )
 
-	def forward(self, face, voice):
-		# todo: 是用含所有帧信息的 output，还是用只有最后一帧信息的 hn或cn？
-		# x.shpae = (seq_len, batch, face_emb+voice_emb)
-		x = torch.cat((face, voice), dim=2)
-		# x = self.bn0(x)
-		output, (hn, cn) = self.lstm(x)
-
-		hn = hn.permute(1, 2, 0).contiguous().view(-1, 2*self.hid_emb)
-		hn = self.relu(self.hn_fc1(hn))
-		hn = self.relu(self.hn_fc2(hn))
-		hn = self.tanh(self.hn_fc3(hn))
-		hn = hn.squeeze()
-		return hn
+	def forward(self, lip, voice):
+		# x.shpae = (batch, lip_emb+voice_emb)
+		x = torch.cat((lip, voice), dim=1)
+		x = self.model(x)
+		return x
