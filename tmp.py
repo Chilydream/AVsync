@@ -19,11 +19,10 @@ import glob
 import sys
 
 from model.Lmk2LipModel import Lmk2LipModel
+from model.VGGModel import VGGVoice
 from utils.data_utils.LRWImageLmkTriplet import LRWImageLmkTripletDataLoader
 from utils.extract_wav import extract_wav
 
-# sys.path.append('/home/tliu/fsx/project/AVsync/third_party/yolo')
-# sys.path.append('/home/tliu/fsx/project/AVsync/third_party/HRNet')
 sys.path.append('./third_party/yolo')
 sys.path.append('./third_party/HRNet')
 
@@ -37,18 +36,16 @@ from third_party.yolo.yolo_models.yolo import Model as yolo_model
 from third_party.yolo.yolo_utils.util_yolo import face_detect
 from third_party.HRNet.utils_inference import get_model_by_name, get_batch_lmks
 
-args = TrainOptions('config/lmk2text.yaml').parse()
+args = TrainOptions('config/train.yaml').parse()
 run_device = torch.device('cuda:0')
 model_lmk2lip = Lmk2LipModel(lmk_emb=args.lmk_emb, lip_emb=args.lip_emb, stride=1)
-model_lmk2lip.to(run_device)
-
-with open('metadata/LRW_train_3090.txt', 'r') as fr, open('metadata/LRW_train_3090_lmk.txt', 'w') as fw:
-	lines = fr.readlines()
-	for line in lines:
-		_, mp4name = line.strip().split('\t')
-		lmkname = mp4name[:-3]+'lmk'
-		lmk_tensor = torch.load(lmkname)
-		if lmk_tensor.shape[0] != 29 or lmk_tensor.shape[1] != 68:
-			print(f'Error file {mp4name}, lmk shape: {lmk_tensor.shape}')
-			continue
-		print(line.strip(), file=fw)
+model_wav2v = VGGVoice(n_out=args.voice_emb)
+l2t_ckpt = torch.load('pretrain_model/lmk2t.model')
+model_lmk2lip.load_state_dict(l2t_ckpt['model_lmk2lip'])
+s2t_ckpt = torch.load('pretrain_model/s2t.model')
+model_wav2v.load_state_dict(s2t_ckpt['model_wav2v'])
+save_dict = {
+	'model_lmk2lip': model_lmk2lip.state_dict(),
+	'model_wav2v': model_wav2v.state_dict(),
+}
+torch.save(save_dict, 'pretrain_model/pre_av.model')

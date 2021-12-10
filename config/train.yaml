@@ -1,13 +1,13 @@
 project_name: "Audio Video Synchronization"
 mode: "train"
-pretrain_model: ~
+pretrain_model: "pretrain_model/pre_av.model"
 exp_dir: "exp_train"
 exp_num: "000"
 save_step: 1
 valid_step: 1
 
 epoch: 1000
-batch_size: 128
+batch_size: 256
 num_workers: 12
 resolution: -1
 lmk2lip_lr: 0.0003
@@ -17,7 +17,7 @@ wav2v_gamma: 0.999
 sync_lr: 0.0003
 sync_gamma: 0.999
 gpu: True
-wandb: False
+wandb: True
 batch_first: True
 
 class_lambda: 5.0
@@ -28,5 +28,7 @@ val_list: "metadata/LRW_val_3090.txt"
 test_list: "metadata/LRW_test_3090.txt"
 max_size: 0
 lip_emb: 256
+voice_emb: 256
 lmk_emb: 40
+n_mfcc: 0
 triplet_margin: 1.0

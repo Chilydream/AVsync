@@ -12,7 +12,7 @@ import wandb
 import sys
 
 from model.SyncModel import SyncModel2
-from utils.accuracy import get_new_idx, get_gt_label
+from utils.accuracy import get_new_idx, get_gt_label, get_rand_idx
 from utils.data_utils.LRWImageLmkTriplet import LRWImageLmkTripletDataLoader
 from utils.data_utils.LRWRaw import LRWDataLoader
 from utils.data_utils.LRWTriplet import LRWTripletDataLoader
@@ -198,6 +198,10 @@ def main():
 		file_train_log = open(path_train_log, 'a')
 	elif args.mode.lower() in ['train']:
 		file_train_log = open(path_train_log, 'w')
+		if args.pretrain_model is not None:
+			model_ckpt = torch.load(args.pretrain_model)
+			model_lmk2lip.load_state_dict(model_ckpt['model_lmk2lip'])
+			model_wav2v.load_state_dict(model_ckpt['model_wav2v'])
 	else:
 		raise Exception(f"未定义训练模式{args.mode}")
 
@@ -214,13 +218,16 @@ def main():
 		epoch_timer.set_start_time(time.time())
 		for data in train_loader:
 			a_wav, a_lmk, a_wid = data
+			a_wav = a_wav.to(run_device)
+			a_lmk = a_lmk.to(run_device)
+			a_wid = a_wid.to(run_device)
 			a_lip = model_lmk2lip(a_lmk)
 			a_voice = model_wav2v(a_wav)
 			# todo: 这里是要用综合特征，还是按帧划分的特征？
 			# todo: 这里是否要让 a_lip和 a_voice特征相近？
 
-			new_idx = get_new_idx(args.batch_size)
-			a_voice = a_voice[:, new_idx, :]
+			new_idx = get_rand_idx(args.batch_size)
+			a_voice = a_voice[new_idx, :]
 			label_gt = get_gt_label(a_wid, new_idx).to(run_device)
 			label_pred = model_sync(a_lip, a_voice)
 
