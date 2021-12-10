@@ -11,7 +11,7 @@ import torchvision.transforms as transforms
 import wandb
 import sys
 
-from model.SyncModel import SyncModel2
+from model.SyncModel import SyncModel
 from utils.accuracy import get_new_idx, get_gt_label, get_rand_idx
 from utils.data_utils.LRWImageLmkTriplet import LRWImageLmkTripletDataLoader
 from utils.data_utils.LRWRaw import LRWDataLoader
@@ -101,7 +101,7 @@ def main():
 
 	model_lmk2lip = Lmk2LipModel(lmk_emb=args.lmk_emb, lip_emb=args.lip_emb, stride=1)
 	model_wav2v = VGGVoice(n_out=args.voice_emb)
-	model_sync = SyncModel2(lip_emb=args.lip_emb, voice_emb=args.voice_emb)
+	model_sync = SyncModel(lip_emb=args.lip_emb, voice_emb=args.voice_emb)
 	model_list = [model_lmk2lip, model_wav2v, model_sync]
 	for model_iter in model_list:
 		model_iter.to(run_device)
