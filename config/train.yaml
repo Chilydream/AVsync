@@ -31,4 +31,5 @@ lip_emb: 256
 voice_emb: 256
 lmk_emb: 40
 n_mfcc: 0
+seq_len: 29
 triplet_margin: 1.0

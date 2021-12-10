@@ -144,14 +144,14 @@ def main():
 	                             num_workers=args.num_workers,
 	                             n_mfcc=args.n_mfcc,
 	                             resolution=args.resolution,
-	                             seq_len=0,
+	                             seq_len=args.seq_len,
 	                             is_train=True, max_size=0)
 
 	valid_loader = LRWDataLoader(args.val_list, batch_size,
 	                             num_workers=args.num_workers,
 	                             n_mfcc=args.n_mfcc,
 	                             resolution=args.resolution,
-	                             seq_len=0,
+	                             seq_len=args.seq_len,
 	                             is_train=False, max_size=0)
 	loader_timer.update(time.time())
 	print(f'Batch Num in Train Loader: {len(train_loader)}')
@@ -181,7 +181,7 @@ def main():
 			                            num_workers=args.num_workers,
 			                            n_mfcc=args.n_mfcc,
 			                            resolution=args.resolution,
-			                            seq_len=0,
+			                            seq_len=args.seq_len,
 			                            is_train=False, max_size=0)
 			with torch.no_grad():
 				model_lmk2lip.eval()
@@ -207,6 +207,8 @@ def main():
 			model_ckpt = torch.load(args.pretrain_model)
 			model_lmk2lip.load_state_dict(model_ckpt['model_lmk2lip'])
 			model_wav2v.load_state_dict(model_ckpt['model_wav2v'])
+			if 'model_sync' in model_ckpt.keys():
+				model_sync.load_state_dict(model_ckpt['model_sync'])
 	else:
 		raise Exception(f"未定义训练模式{args.mode}")
 
