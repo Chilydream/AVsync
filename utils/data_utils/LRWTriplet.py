@@ -20,12 +20,6 @@ class LRWTripletDataset(LRWDataset):
 		                 resolution=resolution,
 		                 max_size=max_size)
 
-	def get_rand_id_from_wid(self, wid):
-		start_id = self.word_accumulate[wid]
-		end_id = self.word_accumulate[wid+1]
-		rand_id = np.random.randint(start_id, end_id)
-		return rand_id
-
 	def __getitem__(self, item):
 		# todo: seq_len还没有用上
 		# todo: 获取item也需要修改

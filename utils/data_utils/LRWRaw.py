@@ -59,25 +59,29 @@ class LRWDataset(Dataset):
 	def __getitem__(self, item):
 		mp4_name = self.file_list[item]
 		wav_name = mp4_name[:-3]+'wav'
-		frame_tensor = get_frame_tensor(filename=mp4_name,
-		                                seq_len=self.seq_len,
-		                                resolution=self.resolution)
+		lmk_name = mp4_name[:-3]+'lmk'
 		if self.n_mfcc == 0:
-			wav_tensor = get_wav(filename=wav_name)
+			a_wav = get_wav(filename=wav_name)
 		elif self.n_mfcc<0:
-			return frame_tensor, wav_name, self.id2wid[item]
+			a_wav = item
 		else:
-			wav_tensor = get_mfcc(filename=wav_name,
-			                      n_mfcc=self.n_mfcc)
-		return frame_tensor, wav_tensor, self.id2wid[item]
+			a_wav = get_mfcc(filename=wav_name,
+			                 n_mfcc=self.n_mfcc)
 
-	def get_from_specifit_word(self, wid=-1, n=1):
-		if wid == -1:
-			wid = random.randint(0, self.nword-1)
+		if self.resolution>=0:
+			a_img = get_frame_tensor(filename=mp4_name,
+			                         seq_len=self.seq_len,
+			                         resolution=self.resolution)
+		else:
+			a_img = torch.load(lmk_name)
+			a_img = torch.flatten(a_img[:, 48:68, :], start_dim=1)
+		return a_wav, a_img, self.id2wid[item]
+
+	def get_rand_id_from_wid(self, wid):
 		start_id = self.word_accumulate[wid]
 		end_id = self.word_accumulate[wid+1]
-		f_list = random.sample(range(start_id, end_id), k=n)
-		return f_list
+		rand_id = np.random.randint(start_id, end_id)
+		return rand_id
 
 	def __len__(self):
 		if self.max_size<=0:

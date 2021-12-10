@@ -129,10 +129,11 @@ def main():
 
 	epoch_reset_list = [epoch_loss_final, epoch_timer,
 	                    epoch_loss_triplet, epoch_loss_class, epoch_acc_class]
-	print('Train Parameters')
-	for key, value in args.__dict__.items():
-		print(f'{key:18}:\t{value}')
-	print('')
+	if args.mode in ('train', 'continue'):
+		print('Train Parameters')
+		for key, value in args.__dict__.items():
+			print(f'{key:18}:\t{value}')
+		print('')
 
 	# ============================数据载入===============================
 	loader_timer = Meter('Time', 'time', ':3.0f', end='')
@@ -169,10 +170,9 @@ def main():
 				         valid_loader, args)
 		else:
 			del valid_loader
-			test_loader = LRWImageTripletDataLoader(args.test_list, batch_size,
-			                                        num_workers=args.num_workers,
-			                                        seq_len=0, resolution=0,
-			                                        is_train=False, max_size=0)
+			test_loader = LRWImageLmkTripletDataLoader(args.test_list, batch_size,
+			                                           num_workers=args.num_workers,
+			                                           is_train=False, max_size=0)
 			with torch.no_grad():
 				model_lmk2lip.eval()
 				model_lip2t.eval()
@@ -181,6 +181,7 @@ def main():
 				evaluate(model_lmk2lip, model_lip2t,
 				         criterion_class, criterion_triplet,
 				         test_loader, args)
+			print('\n\n')
 		return
 	elif args.mode.lower() in ['continue']:
 		print('Loading pretrained model', args.pretrain_model)
@@ -192,6 +193,10 @@ def main():
 		file_train_log = open(path_train_log, 'a')
 	elif args.mode.lower() in ['train']:
 		file_train_log = open(path_train_log, 'w')
+		if args.pretrain_model is not None:
+			model_ckpt = torch.load(args.pretrain_model)
+			model_lmk2lip.load_state_dict(model_ckpt['model_lmk2lip'])
+			model_lip2t.load_state_dict(model_ckpt['model_lip2t'])
 	else:
 		raise Exception(f"未定义训练模式{args.mode}")
 

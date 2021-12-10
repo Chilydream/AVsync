@@ -20,7 +20,7 @@ def get_mfcc(filename: str, n_mfcc):
 
 
 def get_wav(filename):
-	y, sr = librosa.load(filename, sr=None)
+	y, sr = librosa.load(filename, sr=16000)
 	return y
 
 
