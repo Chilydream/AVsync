@@ -122,9 +122,9 @@ def main():
 			wandb.watch(model_iter)
 
 	# ============================度量载入===============================
-	epoch_loss_class = Meter('Sync Loss', 'avg', ':.4f')
+	epoch_loss_class = Meter('Class Loss', 'avg', ':.4f')
 	epoch_loss_final = Meter('Final Loss', 'avg', ':.4f')
-	epoch_acc_sync = Meter('Sync ACC', 'avg', ':.2f', '%, ')
+	epoch_acc_sync = Meter('Class ACC', 'avg', ':.2f', '%, ')
 	epoch_timer = Meter('Time', 'time', ':4.0f')
 
 	epoch_reset_list = [epoch_loss_final, epoch_loss_class,
@@ -147,7 +147,7 @@ def main():
 	                             seq_len=0,
 	                             is_train=True, max_size=0)
 
-	valid_loader = LRWDataLoader(args.train_list, batch_size,
+	valid_loader = LRWDataLoader(args.val_list, batch_size,
 	                             num_workers=args.num_workers,
 	                             n_mfcc=args.n_mfcc,
 	                             resolution=args.resolution,
@@ -177,10 +177,12 @@ def main():
 				         valid_loader, args)
 		else:
 			del valid_loader
-			test_loader = LRWImageTripletDataLoader(args.test_list, batch_size,
-			                                        num_workers=args.num_workers,
-			                                        seq_len=0, resolution=0,
-			                                        is_train=False, max_size=0)
+			test_loader = LRWDataLoader(args.test_list, batch_size,
+			                            num_workers=args.num_workers,
+			                            n_mfcc=args.n_mfcc,
+			                            resolution=args.resolution,
+			                            seq_len=0,
+			                            is_train=False, max_size=0)
 			with torch.no_grad():
 				model_lmk2lip.eval()
 				model_wav2v.eval()
