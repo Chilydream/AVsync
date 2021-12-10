@@ -43,11 +43,14 @@ def evaluate(model_lmk2lip, model_wav2v, model_sync, criterion_class, loader, ar
 	print('\tEvaluating Result:')
 	for data in loader:
 		a_wav, a_lmk, a_wid = data
+		a_wav = a_wav.to(run_device)
+		a_lmk = a_lmk.to(run_device)
+		a_wid = a_wid.to(run_device)
 		a_lip = model_lmk2lip(a_lmk)
 		a_voice = model_wav2v(a_wav)
 
-		new_idx = get_new_idx(args.batch_size)
-		a_voice = a_voice[:, new_idx, :]
+		new_idx = get_rand_idx(args.batch_size)
+		a_voice = a_voice[new_idx, :]
 		label_gt = get_gt_label(a_wid, new_idx).to(run_device)
 		label_pred = model_sync(a_lip, a_voice)
 

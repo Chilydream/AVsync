@@ -1,6 +1,6 @@
 project_name: "Audio Video Synchronization"
 mode: "train"
-pretrain_model: "pretrain_model/pre_av.model"
+pretrain_model: ~
 exp_dir: "exp_train"
 exp_num: "000"
 save_step: 1
