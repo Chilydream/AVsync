@@ -1,12 +1,8 @@
 import torch
 import numpy as np
-import random
-import pdb
-import os
 import cv2
-import math
-from scipy.io import wavfile
 import librosa
+from moviepy.editor import VideoFileClip
 
 
 def get_mfcc(filename: str, n_mfcc):
@@ -30,6 +26,27 @@ def make_image_square(img):
 	ax, ay = (s-img.shape[1])//2, (s-img.shape[0])//2
 	f[ay:img.shape[0]+ay, ax:ax+img.shape[1]] = img
 	return f
+
+
+def get_frame_moviepy(filename, seq_len=29, fps=25, resolution=0):
+	video_file_clip = VideoFileClip(filename)
+	video_file_clip = video_file_clip.to_RGB()
+	image_list = []
+	video_fps = fps
+	for i in range(seq_len):
+		image = video_file_clip.make_frame(i/video_fps)
+		if resolution!=0:
+			image = make_image_square(image)
+			image = cv2.resize(image, (resolution, resolution))
+		image_list.append(image)
+	video_file_clip.close()
+	im = np.stack(image_list, axis=3)
+	# stack操作后 im的形状是（256,256,3,29）
+	im = np.transpose(im, (3, 2, 0, 1))
+	# im的形状是（29,3,256,256）
+	im_tensor = torch.FloatTensor(im)
+
+	return im_tensor
 
 
 def get_frame_tensor(filename, seq_len=0, resolution=0):

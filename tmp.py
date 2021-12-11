@@ -29,7 +29,7 @@ from utils.extract_wav import extract_wav
 sys.path.append('./third_party/yolo')
 sys.path.append('./third_party/HRNet')
 
-from utils.GetDataFromFile import get_mfcc, get_wav
+from utils.GetDataFromFile import get_mfcc, get_wav, get_frame_moviepy
 from utils.extract_lmk import extract_lmk
 from utils.tensor_utils import PadSquare
 from utils.GetConsoleArgs import TrainOptions
@@ -49,20 +49,20 @@ torchfb = torchaudio.transforms.MelSpectrogram(sample_rate=16000, n_fft=512, win
                                                pad=0, n_mels=40)
 mfcc_tensor = torchfb(wav_tensor)
 # torch.Size([batch_size, nmfcc=40, 112])
-
-video_file_clip = VideoFileClip(mp4name)
-video_file_clip = video_file_clip.to_RGB()
-frame_list = []
-video_fps = 25
-for i in range(29):
-    f0 = video_file_clip.make_frame(i/video_fps)
-    frame_list.append(f0)
-print(frame_list[0].shape)
-# audio_file_clip = video_file_clip.audio
-# a = audio_file_clip.to_soundarray(fps=16000)
-# a = a[:, 0]
-# a = torch.tensor(a, dtype=torch.float32)
-# print(a.shape)
-# b = torchfb(a)
-# print(b.shape)
-video_file_clip.close()
+frame_tensor = get_frame_moviepy(mp4name)
+# video_file_clip = VideoFileClip(mp4name)
+# video_file_clip = video_file_clip.to_RGB()
+# frame_list = []
+# video_fps = 25
+# for i in range(29):
+#     f0 = video_file_clip.make_frame(i/video_fps)
+#     frame_list.append(f0)
+# print(frame_list[0].shape)
+# # audio_file_clip = video_file_clip.audio
+# # a = audio_file_clip.to_soundarray(fps=16000)
+# # a = a[:, 0]
+# # a = torch.tensor(a, dtype=torch.float32)
+# # print(a.shape)
+# # b = torchfb(a)
+# # print(b.shape)
+# video_file_clip.close()
