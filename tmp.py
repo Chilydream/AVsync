@@ -50,6 +50,7 @@ torchfb = torchaudio.transforms.MelSpectrogram(sample_rate=16000, n_fft=512, win
 mfcc_tensor = torchfb(wav_tensor)
 # torch.Size([batch_size, nmfcc=40, 112])
 frame_tensor = get_frame_moviepy(mp4name)
+print(frame_tensor.shape)
 # video_file_clip = VideoFileClip(mp4name)
 # video_file_clip = video_file_clip.to_RGB()
 # frame_list = []
