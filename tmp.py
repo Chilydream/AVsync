@@ -56,6 +56,7 @@ torchfb = torchaudio.transforms.MelSpectrogram(sample_rate=16000, n_fft=512, win
 mfcc_tensor = torchfb(wav_tensor)
 # torch.Size([batch_size, nmfcc=40, 112])
 img_tensor = get_frame_moviepy(mp4name)
+img_tensor = img_tensor.to(run_device)
 print(img_tensor.shape)
 lmk_list = face_detect(model_yolo, img_tensor)
 print(lmk_list)
