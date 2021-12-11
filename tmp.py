@@ -39,6 +39,12 @@ from third_party.yolo.yolo_models.yolo import Model as yolo_model
 from third_party.yolo.yolo_utils.util_yolo import face_detect
 from third_party.HRNet.utils_inference import get_model_by_name, get_batch_lmks
 
+run_device = torch.device('cuda:0')
+model_yolo = yolo_model(cfg='config/yolov5s.yaml').float().fuse().eval()
+model_yolo.to(run_device)
+model_yolo.load_state_dict(torch.load('pretrain_model/raw_yolov5s.pt',
+                                      map_location=run_device))
+
 mp4name = 'test/2cut2.mp4'
 wavname = mp4name[:-3]+'wav'
 wav_array = get_wav(wavname)
@@ -49,8 +55,10 @@ torchfb = torchaudio.transforms.MelSpectrogram(sample_rate=16000, n_fft=512, win
                                                pad=0, n_mels=40)
 mfcc_tensor = torchfb(wav_tensor)
 # torch.Size([batch_size, nmfcc=40, 112])
-frame_tensor = get_frame_moviepy(mp4name)
-print(frame_tensor.shape)
+img_tensor = get_frame_moviepy(mp4name)
+print(img_tensor.shape)
+lmk_list = face_detect(model_yolo, img_tensor)
+print(lmk_list)
 # video_file_clip = VideoFileClip(mp4name)
 # video_file_clip = video_file_clip.to_RGB()
 # frame_list = []

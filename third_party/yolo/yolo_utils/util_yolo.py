@@ -65,6 +65,7 @@ def show_results(img, xywh, conf, landmarks, class_num):
 
 # 输入人脸检测模型和frame, 输出边界框坐标
 def face_detect(model_yolo, img: torch.Tensor):
+	# img = (b, 3, w, h)
 	img /= 255.0  # 0 - 255 to 0.0 - 1.0
 	if img.ndimension() == 3:
 		img = img.unsqueeze(0)
