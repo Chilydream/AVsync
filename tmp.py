@@ -52,9 +52,12 @@ mfcc_tensor = torchfb(wav_tensor)
 
 video_file_clip = VideoFileClip(mp4name)
 video_file_clip = video_file_clip.to_RGB()
-f0 = video_file_clip.make_frame(0)
-print(type(f0))
-print(f0.shape)
+frame_list = []
+video_fps = 25
+for i in range(29):
+    f0 = video_file_clip.make_frame(i/video_fps)
+    frame_list.append(f0)
+print(frame_list[0].shape)
 # audio_file_clip = video_file_clip.audio
 # a = audio_file_clip.to_soundarray(fps=16000)
 # a = a[:, 0]
