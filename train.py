@@ -45,6 +45,8 @@ def evaluate(model_lmk2lip, model_wav2v, model_sync, criterion_class, loader, ar
 		a_wav, a_lmk, a_wid = data
 		a_wav = a_wav.to(run_device)
 		a_lmk = a_lmk.to(run_device)
+		a_lmk = a_lmk/2
+		# todo: 这个/2的代码最后要去掉
 		a_wid = a_wid.to(run_device)
 		a_lip = model_lmk2lip(a_lmk)
 		a_voice = model_wav2v(a_wav)
@@ -191,7 +193,7 @@ def main():
 				evaluate(model_lmk2lip, model_wav2v, model_sync,
 				         criterion_class,
 				         test_loader, args)
-		print(f'Finish Evaluation\n\n')
+		print(f'\n\nFinish Evaluation\n\n')
 		return
 	elif args.mode.lower() in ['continue']:
 		print('Loading pretrained model', args.pretrain_model)
