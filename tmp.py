@@ -40,6 +40,9 @@ from third_party.yolo.yolo_utils.util_yolo import face_detect
 from third_party.HRNet.utils_inference import get_model_by_name, get_batch_lmks
 
 run_device = torch.device('cuda:0')
+img_resolution = 256
+face_resolution = 128
+
 model_yolo = yolo_model(cfg='config/yolov5s.yaml').float().fuse().eval()
 model_yolo.to(run_device)
 model_yolo.load_state_dict(torch.load('pretrain_model/raw_yolov5s.pt',
@@ -58,22 +61,26 @@ torchfb = torchaudio.transforms.MelSpectrogram(sample_rate=16000, n_fft=512, win
 mfcc_tensor = torchfb(wav_tensor)
 # torch.Size([batch_size, nmfcc=40, 112])
 pad_resize = transforms.Compose([PadSquare(),
-                                 transforms.Resize((128, 128))])
-img_tensor = get_frame_moviepy(mp4name, resolution=256)
+                                 transforms.Resize((face_resolution, face_resolution))])
+img_tensor = get_frame_moviepy(mp4name, resolution=img_resolution)
 img_tensor = img_tensor.to(run_device)
 print(img_tensor.shape)
 
 with torch.no_grad():
     bbox_list = face_detect(model_yolo, img_tensor)
+    face_list = []
     for i in range(len(bbox_list)):
         x1, y1, x2, y2 = bbox_list[i]
         if x1>=x2:
-            x1, x2 = 0, 127
+            x1, x2 = 0, img_resolution-1
         if y1>=y2:
-            y1, y2 = 0, 127
+            y1, y2 = 0, img_resolution-1
         crop_img = img_tensor[i, :, y1:y2, x1:x2]
-        img_tensor[i] = pad_resize(crop_img)
-    lmk_list = get_batch_lmks(model_hrnet, img_tensor, output_size=(128, 128))
+        print(crop_img.shape)
+        face_list.append(pad_resize(crop_img))
+    face_tensor = torch.stack(face_list, dim=0)
+    print(face_tensor.shape)
+    lmk_list = get_batch_lmks(model_hrnet, face_tensor, output_size=(face_resolution, face_resolution))
     print(lmk_list)
     print(type(lmk_list))
 
