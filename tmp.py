@@ -44,6 +44,8 @@ model_yolo = yolo_model(cfg='config/yolov5s.yaml').float().fuse().eval()
 model_yolo.to(run_device)
 model_yolo.load_state_dict(torch.load('pretrain_model/raw_yolov5s.pt',
                                       map_location=run_device))
+model_hrnet = get_model_by_name('300W', root_models_path='pretrain_model')
+model_hrnet = model_hrnet.to(run_device).eval()
 
 mp4name = 'test/2cut2.mp4'
 wavname = mp4name[:-3]+'wav'
@@ -55,11 +57,26 @@ torchfb = torchaudio.transforms.MelSpectrogram(sample_rate=16000, n_fft=512, win
                                                pad=0, n_mels=40)
 mfcc_tensor = torchfb(wav_tensor)
 # torch.Size([batch_size, nmfcc=40, 112])
+pad_resize = transforms.Compose([PadSquare(),
+                                 transforms.Resize((128, 128))])
 img_tensor = get_frame_moviepy(mp4name, resolution=256)
 img_tensor = img_tensor.to(run_device)
 print(img_tensor.shape)
-lmk_list = face_detect(model_yolo, img_tensor)
-print(lmk_list)
+
+with torch.no_grad():
+    bbox_list = face_detect(model_yolo, img_tensor)
+    for i in range(len(bbox_list)):
+        x1, y1, x2, y2 = bbox_list[i]
+        if x1>=x2:
+            x1, x2 = 0, 127
+        if y1>=y2:
+            y1, y2 = 0, 127
+        crop_img = img_tensor[i, :, y1:y2, x1:x2]
+        img_tensor[i] = pad_resize(crop_img)
+    lmk_list = get_batch_lmks(model_hrnet, img_tensor, output_size=(128, 128))
+    print(lmk_list)
+    print(type(lmk_list))
+
 # video_file_clip = VideoFileClip(mp4name)
 # video_file_clip = video_file_clip.to_RGB()
 # frame_list = []
