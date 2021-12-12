@@ -21,6 +21,7 @@ def get_wav(filename):
 
 
 def get_frame_and_wav(filename, seq_len=29, video_fps=25, resolution=0):
+	print(filename)
 	video_file_clip = VideoFileClip(filename)
 	audio_file_clip = video_file_clip.audio
 	whole_length = video_file_clip.duration
