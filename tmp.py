@@ -58,7 +58,7 @@ train_loader = LabDataLoader(args.train_list, args.batch_size,
                              seq_len=args.seq_len,
                              resolution=args.resolution,
                              is_train=False, max_size=0)
-
+print(f'Finish load dataset, size: {len(train_loader)}')
 for data in train_loader:
 	a_wav, a_img, a_label = data
 	print(a_wav.shape)
