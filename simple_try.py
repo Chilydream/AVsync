@@ -12,12 +12,13 @@ from third_party.HRNet.utils_inference import get_model_by_name
 from utils.GetConsoleArgs import TrainOptions
 from utils.extract_lmk import extract_lmk
 
-args = TrainOptions('config/lmk2text.yaml').parse()
+args = TrainOptions('config/lab_sync.yaml').parse()
 
 with open(args.train_list, 'w') as f_train,	open(args.val_list, 'w') as f_val, open(args.test_list, 'w') as f_test:
 	dataset_dir = '/home/tliu/fsx/dataset/data1204'
 	video_list = glob.glob(os.path.join(dataset_dir, '*'))
 	for i, filename in enumerate(video_list):
+		print(filename)
 		if i%10<8:
 			if filename[0]=='1':
 				print(f'0\t{filename}', file=f_train)
