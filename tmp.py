@@ -43,12 +43,12 @@ run_device = torch.device('cuda:0')
 img_resolution = 256
 face_resolution = 128
 
-model_yolo = yolo_model(cfg='config/yolov5s.yaml').float().fuse().eval()
-model_yolo.to(run_device)
-model_yolo.load_state_dict(torch.load('pretrain_model/raw_yolov5s.pt',
-                                      map_location=run_device))
-model_hrnet = get_model_by_name('300W', root_models_path='pretrain_model')
-model_hrnet = model_hrnet.to(run_device).eval()
+# model_yolo = yolo_model(cfg='config/yolov5s.yaml').float().fuse().eval()
+# model_yolo.to(run_device)
+# model_yolo.load_state_dict(torch.load('pretrain_model/raw_yolov5s.pt',
+#                                       map_location=run_device))
+# model_hrnet = get_model_by_name('300W', root_models_path='pretrain_model')
+# model_hrnet = model_hrnet.to(run_device).eval()
 
 mp4name = 'test/2cut2.mp4'
 wavname = mp4name[:-3]+'wav'
