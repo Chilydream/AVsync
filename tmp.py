@@ -63,7 +63,6 @@ for data in train_loader:
 	a_wav, a_img = data
 	print(a_wav.shape)
 	print(a_img.shape)
-	print(a_label)
 	break
 
 # a_img, a_wav = get_frame_and_wav('/home/tliu/fsx/dataset/lab_regular/talk/2zhu09.mp4', resolution=args.resolution)
