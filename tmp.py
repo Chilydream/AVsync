@@ -76,9 +76,8 @@ with torch.no_grad():
         if y1>=y2:
             y1, y2 = 0, img_resolution-1
         crop_img = img_tensor[i, :, y1:y2, x1:x2]
-        print(crop_img.shape)
         face_list.append(pad_resize(crop_img))
-    face_tensor = torch.stack(face_list, dim=0)
+    face_tensor = torch.stack(face_list, dim=0).to(run_device)
     print(face_tensor.shape)
     lmk_list = get_batch_lmks(model_hrnet, face_tensor, output_size=(face_resolution, face_resolution))
     print(lmk_list)
