@@ -16,5 +16,5 @@ run_device = torch.device("cuda" if args.gpu else "cpu")
 
 a = torch.rand((4, 3, 2))
 print(a.shape)
-b = torch.mean(a, dim=1)
+b = torch.mean(a, dim=(0, 1))
 print(b.shape)
