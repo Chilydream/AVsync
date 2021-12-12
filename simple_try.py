@@ -47,8 +47,8 @@ with open(args.train_list, 'w') as f_train,	open(args.val_list, 'w') as f_val, o
 	video_list = glob.glob(os.path.join(dataset_dir, '*'))
 	for i, filename in enumerate(video_list):
 		if i%10<8:
-			print(f'0\t{filename}', file=f_train)
+			print(f'1\t{filename}', file=f_train)
 		elif i%10==8:
-			print(f'0\t{filename}', file=f_val)
+			print(f'1\t{filename}', file=f_val)
 		else:
-			print(f'0\t{filename}', file=f_test)
+			print(f'1\t{filename}', file=f_test)
