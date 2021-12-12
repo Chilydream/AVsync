@@ -30,7 +30,7 @@ from utils.extract_wav import extract_wav
 sys.path.append('./third_party/yolo')
 sys.path.append('./third_party/HRNet')
 
-from utils.GetDataFromFile import get_mfcc, get_wav, get_frame_moviepy
+from utils.GetDataFromFile import get_mfcc, get_wav, get_frame_moviepy, get_frame_and_wav
 from utils.extract_lmk import extract_lmk
 from utils.tensor_utils import PadSquare
 from utils.GetConsoleArgs import TrainOptions
@@ -65,3 +65,6 @@ for data in train_loader:
 	print(a_img.shape)
 	print(a_label)
 	break
+
+# a_img, a_wav = get_frame_and_wav('/home/tliu/fsx/dataset/lab_regular/silent/1bairuolin.mp4')
+# print(a_img.shape, a_wav.shape)

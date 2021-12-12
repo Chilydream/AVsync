@@ -21,20 +21,21 @@ class LabDataset(Dataset):
 		self.resolution = resolution
 		self.max_size = max_size
 		self.file_list = []
-		self.talk_flag = []
+		# self.talk_flag = []
+		# todo:　静音数据集
 		self.nfile = 0
 
 		with open(dataset_file) as fr:
 			for idx, line in enumerate(fr.readlines()):
 				is_talk, filename = line.strip().split('\t')
-				self.file_list.append(filename)
-				self.talk_flag.append(is_talk!='0')
+				if is_talk!='0':
+					self.file_list.append(filename)
 		self.nfile = len(self.file_list)
 
 	def __getitem__(self, item):
 		mp4_name = self.file_list[item]
 		img_tensor, wav_tensor = get_frame_and_wav(mp4_name, resolution=self.resolution)
-		return wav_tensor, img_tensor, self.talk_flag
+		return wav_tensor, img_tensor
 
 	def __len__(self):
 		if self.max_size<=0:
