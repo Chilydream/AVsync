@@ -22,9 +22,11 @@ def get_wav(filename):
 
 def get_frame_and_wav(filename, seq_len=29, video_fps=25, resolution=0):
 	video_file_clip = VideoFileClip(filename)
+	audio_file_clip = video_file_clip.audio
 	whole_length = video_file_clip.duration
 	if whole_length<(seq_len-1)/video_fps:
 		raise ValueError(f'要求视频时长不小于{seq_len/video_fps}秒，但是文件“{filename}”只有{whole_length}秒')
+
 	start_time = np.random.randint(1, int(whole_length-1-(seq_len-1)/video_fps))
 	video_file_clip = video_file_clip.to_RGB()
 	image_list = []
@@ -36,7 +38,6 @@ def get_frame_and_wav(filename, seq_len=29, video_fps=25, resolution=0):
 			image = cv2.resize(image, (resolution, resolution))
 		image_list.append(image)
 
-	audio_file_clip = video_file_clip.audio
 	wav_array = audio_file_clip.to_soundarray(fps=16000)[:, 0]
 	wav_array = wav_array[start_time:start_time+int((seq_len-1)*16000/video_fps)]
 	wav_tensor = torch.FloatTensor(wav_array)

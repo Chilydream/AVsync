@@ -24,7 +24,7 @@ import sys
 from model.Lmk2LipModel import Lmk2LipModel
 from model.VGGModel import VGGVoice
 from utils.data_utils.LRWImageLmkTriplet import LRWImageLmkTripletDataLoader
-from utils.data_utils.LabRaw import LabDataset
+from utils.data_utils.LabRaw import LabDataset, LabDataLoader
 from utils.extract_wav import extract_wav
 
 sys.path.append('./third_party/yolo')
@@ -52,13 +52,16 @@ face_resolution = 128
 # model_hrnet = get_model_by_name('300W', root_models_path='pretrain_model')
 # model_hrnet = model_hrnet.to(run_device).eval()
 
-train_loader = LabDataset(args.train_list, n_mfcc=args.n_mfcc,
-                          seq_len=args.seq_len,
-                          resolution=args.resolution,
-                          max_size=0)
+train_loader = LabDataLoader(args.train_list, args.batch_size,
+                             num_workers=args.num_workers,
+                             n_mfcc=args.n_mfcc,
+                             seq_len=args.seq_len,
+                             resolution=args.resolution,
+                             is_train=False, max_size=0)
 
 for data in train_loader:
-    a_wav, a_img, a_label = data
-    print(a_wav.shape)
-    print(a_img.shape)
-    print(a_label)
+	a_wav, a_img, a_label = data
+	print(a_wav.shape)
+	print(a_img.shape)
+	print(a_label)
+	break
