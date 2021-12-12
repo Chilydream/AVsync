@@ -85,9 +85,10 @@ mfcc_tensor = torchfb(wav_tensor)
 #     print(type(lmk_list))
 
 video_file_clip = VideoFileClip(mp4name)
+print(video_file_clip.duration)
 audio_file_clip = video_file_clip.audio
 a = audio_file_clip.to_soundarray(fps=16000)[:, 0]
-a = a[0:int(29/25*16000)]
+a = a[0:int(28*16000/25)]
 a = torch.tensor(a, dtype=torch.float32)
 print(a.shape)
 b = torchfb(a)
