@@ -20,6 +20,37 @@ def get_wav(filename):
 	return y
 
 
+def get_frame_and_wav(filename, seq_len=29, video_fps=25, resolution=0):
+	video_file_clip = VideoFileClip(filename)
+	whole_length = video_file_clip.duration
+	if whole_length<(seq_len-1)/video_fps:
+		raise ValueError(f'要求视频时长不小于{seq_len/video_fps}秒，但是文件“{filename}”只有{whole_length}秒')
+	start_time = np.random.randint(1, int(whole_length-1-(seq_len-1)/video_fps))
+	video_file_clip = video_file_clip.to_RGB()
+	image_list = []
+	video_fps = video_fps
+	for i in range(seq_len):
+		image = video_file_clip.make_frame(start_time+i/video_fps)
+		if resolution != 0:
+			image = make_image_square(image)
+			image = cv2.resize(image, (resolution, resolution))
+		image_list.append(image)
+
+	audio_file_clip = video_file_clip.audio
+	wav_array = audio_file_clip.to_soundarray(fps=16000)[:, 0]
+	wav_array = wav_array[start_time:start_time+int((seq_len-1)*16000/video_fps)]
+	wav_tensor = torch.FloatTensor(wav_array)
+
+	video_file_clip.close()
+	im = np.stack(image_list, axis=3)
+	# stack操作后 im的形状是（256,256,3,29）
+	im = np.transpose(im, (3, 2, 0, 1))
+	# im的形状是（29,3,256,256）
+	im_tensor = torch.FloatTensor(im)
+
+	return im_tensor, wav_tensor
+
+
 def make_image_square(img):
 	s = max(img.shape[0:2])
 	f = np.zeros((s, s, 3), np.uint8)
@@ -35,7 +66,7 @@ def get_frame_moviepy(filename, seq_len=29, fps=25, resolution=0):
 	video_fps = fps
 	for i in range(seq_len):
 		image = video_file_clip.make_frame(i/video_fps)
-		if resolution!=0:
+		if resolution != 0:
 			image = make_image_square(image)
 			image = cv2.resize(image, (resolution, resolution))
 		image_list.append(image)
@@ -68,7 +99,7 @@ def get_frame_tensor(filename, seq_len=0, resolution=0):
 		if image is None:
 			break
 
-		if resolution!=0:
+		if resolution != 0:
 			image = make_image_square(image)
 			image = cv2.resize(image, (resolution, resolution))
 		image_list.append(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))

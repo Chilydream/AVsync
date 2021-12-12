@@ -1,0 +1,36 @@
+project_name: "Lab Dataset Synchronization"
+mode: "train"
+pretrain_model: "pretrain_model/pre_av.model"
+exp_dir: "exp_lab_sync"
+exp_num: "000"
+save_step: 1
+valid_step: 1
+
+epoch: 1000
+batch_size: 512
+num_workers: 12
+gpu: True
+wandb: False
+batch_first: True
+
+lmk2lip_lr: 0.0001
+lmk2lip_gamma: 0.99
+wav2v_lr: 0.0001
+wav2v_gamma: 0.99
+sync_lr: 0.0003
+sync_gamma: 0.99
+
+class_lambda: 5.0
+triplet_lambda: 1.0
+
+train_list: "metadata/Lab_train_3090.txt"
+val_list: "metadata/Lab_val_3090.txt"
+test_list: "metadata/Lab_test_3090.txt"
+max_size: 0
+lip_emb: 256
+voice_emb: 256
+lmk_emb: 40
+n_mfcc: 0
+resolution: 256
+seq_len: 29
+triplet_margin: 1.0
