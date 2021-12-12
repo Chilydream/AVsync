@@ -1,3 +1,4 @@
+import glob
 import os
 import multiprocessing
 import sys
@@ -12,11 +13,42 @@ from utils.GetConsoleArgs import TrainOptions
 from utils.extract_lmk import extract_lmk
 
 args = TrainOptions('config/lmk2text.yaml').parse()
-run_device = torch.device("cuda" if args.gpu else "cpu")
 
-a = torch.rand((2, 3, 2))
-b = torch.mean(a, dim=(0, 1))
-print(a)
-print(b)
-a = a/b
-print(a)
+with open(args.train_list, 'w') as f_train,	open(args.val_list, 'w') as f_val, open(args.test_list, 'w') as f_test:
+	dataset_dir = '/home/tliu/fsx/dataset/data1204'
+	video_list = glob.glob(os.path.join(dataset_dir, '*'))
+	for i, filename in enumerate(video_list):
+		if i%10<8:
+			if filename[0]=='1':
+				print(f'0\t{filename}', file=f_train)
+			elif filename[0]=='2':
+				print(f'1\t{filename}', file=f_train)
+		elif i%10==8:
+			if filename[0]=='1':
+				print(f'0\t{filename}', file=f_val)
+			elif filename[0]=='2':
+				print(f'1\t{filename}', file=f_val)
+		else:
+			if filename[0]=='1':
+				print(f'0\t{filename}', file=f_test)
+			elif filename[0]=='2':
+				print(f'1\t{filename}', file=f_test)
+
+	dataset_dir = '/home/tliu/fsx/dataset/lab50-new/silent'
+	video_list = glob.glob(os.path.join(dataset_dir, '*'))
+	for i, filename in enumerate(video_list):
+		if i%10<8:
+			print(f'0\t{filename}', file=f_train)
+		elif i%10==8:
+			print(f'0\t{filename}', file=f_val)
+		else:
+			print(f'0\t{filename}', file=f_test)
+	dataset_dir = '/home/tliu/fsx/dataset/lab50-new/talk'
+	video_list = glob.glob(os.path.join(dataset_dir, '*'))
+	for i, filename in enumerate(video_list):
+		if i%10<8:
+			print(f'0\t{filename}', file=f_train)
+		elif i%10==8:
+			print(f'0\t{filename}', file=f_val)
+		else:
+			print(f'0\t{filename}', file=f_test)
