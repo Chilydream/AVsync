@@ -80,7 +80,7 @@ with torch.no_grad():
     face_tensor = torch.stack(face_list, dim=0).to(run_device)
     print(face_tensor.shape)
     lmk_list = get_batch_lmks(model_hrnet, face_tensor, output_size=(face_resolution, face_resolution))
-    print(lmk_list)
+    print(lmk_list.shape)
     print(type(lmk_list))
 
 # video_file_clip = VideoFileClip(mp4name)
