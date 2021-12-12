@@ -13,13 +13,8 @@ from utils.extract_lmk import extract_lmk
 
 args = TrainOptions('config/lmk2text.yaml').parse()
 run_device = torch.device("cuda" if args.gpu else "cpu")
-model_hrnet = get_model_by_name('300W', root_models_path='pretrain_model')
-model_hrnet = model_hrnet.to(run_device).eval()
 
-with open('metadata/LRW_test_3090.txt', 'r') as fr:
-	lines = fr.readlines()
-	for idx in range(len(lines)):
-		line = lines[idx]
-		_, mp4name = line.strip().split('\t')
-		extract_lmk(model_hrnet, mp4name, run_device)
-		print(idx)
+a = torch.rand((4, 3, 2))
+print(a.shape)
+b = torch.mean(a, dim=1)
+print(b.shape)
