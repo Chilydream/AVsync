@@ -7,7 +7,7 @@ save_step: 1
 valid_step: 1
 
 epoch: 1000
-batch_size: 8
+batch_size: 1
 num_workers: 12
 gpu: True
 wandb: False
