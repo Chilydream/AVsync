@@ -64,7 +64,7 @@ face_resolution = 128
 # 	print(a_wav.shape)
 # 	print(a_img.shape)
 
-with open('metadata/lab_train.txt', 'r') as fr:
+with open('metadata/lab_train_3090.txt', 'r') as fr:
 	lines = fr.readlines()
 	for line in lines:
 		is_talk, filename = line.strip().split('\t')
