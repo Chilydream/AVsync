@@ -45,7 +45,7 @@ def evaluate(model_lmk2lip, model_wav2v, model_sync, criterion_class, loader, ar
 		a_wav, a_lmk, a_wid = data
 		a_wav = a_wav.to(run_device)
 		a_lmk = a_lmk.to(run_device)
-		a_lmk = a_lmk/2
+		a_lmk = a_lmk + 50
 		# todo: 这个/2的代码最后要去掉
 		a_wid = a_wid.to(run_device)
 		a_lip = model_lmk2lip(a_lmk)
