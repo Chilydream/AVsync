@@ -60,42 +60,35 @@ torchfb = torchaudio.transforms.MelSpectrogram(sample_rate=16000, n_fft=512, win
                                                pad=0, n_mels=40)
 mfcc_tensor = torchfb(wav_tensor)
 # torch.Size([batch_size, nmfcc=40, 112])
-pad_resize = transforms.Compose([PadSquare(),
-                                 transforms.Resize((face_resolution, face_resolution))])
-img_tensor = get_frame_moviepy(mp4name, resolution=img_resolution)
-img_tensor = img_tensor.to(run_device)
-print(img_tensor.shape)
 
-with torch.no_grad():
-    bbox_list = face_detect(model_yolo, img_tensor)
-    face_list = []
-    for i in range(len(bbox_list)):
-        x1, y1, x2, y2 = bbox_list[i]
-        if x1>=x2:
-            x1, x2 = 0, img_resolution-1
-        if y1>=y2:
-            y1, y2 = 0, img_resolution-1
-        crop_img = img_tensor[i, :, y1:y2, x1:x2]
-        face_list.append(pad_resize(crop_img))
-    face_tensor = torch.stack(face_list, dim=0).to(run_device)
-    print(face_tensor.shape)
-    lmk_list = get_batch_lmks(model_hrnet, face_tensor, output_size=(face_resolution, face_resolution))
-    print(lmk_list.shape)
-    print(type(lmk_list))
+# pad_resize = transforms.Compose([PadSquare(),
+#                                  transforms.Resize((face_resolution, face_resolution))])
+# img_tensor = get_frame_moviepy(mp4name, resolution=img_resolution)
+# img_tensor = img_tensor.to(run_device)
+# print(img_tensor.shape)
+#
+# with torch.no_grad():
+#     bbox_list = face_detect(model_yolo, img_tensor)
+#     face_list = []
+#     for i in range(len(bbox_list)):
+#         x1, y1, x2, y2 = bbox_list[i]
+#         if x1>=x2:
+#             x1, x2 = 0, img_resolution-1
+#         if y1>=y2:
+#             y1, y2 = 0, img_resolution-1
+#         crop_img = img_tensor[i, :, y1:y2, x1:x2]
+#         face_list.append(pad_resize(crop_img))
+#     face_tensor = torch.stack(face_list, dim=0).to(run_device)
+#     print(face_tensor.shape)
+#     lmk_list = get_batch_lmks(model_hrnet, face_tensor, output_size=(face_resolution, face_resolution))
+#     print(lmk_list.shape)
+#     print(type(lmk_list))
 
-# video_file_clip = VideoFileClip(mp4name)
-# video_file_clip = video_file_clip.to_RGB()
-# frame_list = []
-# video_fps = 25
-# for i in range(29):
-#     f0 = video_file_clip.make_frame(i/video_fps)
-#     frame_list.append(f0)
-# print(frame_list[0].shape)
-# # audio_file_clip = video_file_clip.audio
-# # a = audio_file_clip.to_soundarray(fps=16000)
-# # a = a[:, 0]
-# # a = torch.tensor(a, dtype=torch.float32)
-# # print(a.shape)
-# # b = torchfb(a)
-# # print(b.shape)
-# video_file_clip.close()
+video_file_clip = VideoFileClip(mp4name)
+audio_file_clip = video_file_clip.audio
+a = audio_file_clip.to_soundarray(fps=16000)[:, 0]
+a = torch.tensor(a, dtype=torch.float32)
+print(a.shape)
+b = torchfb(a)
+print(b.shape)
+video_file_clip.close()
