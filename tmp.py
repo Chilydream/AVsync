@@ -52,23 +52,15 @@ face_resolution = 128
 # model_hrnet = get_model_by_name('300W', root_models_path='pretrain_model')
 # model_hrnet = model_hrnet.to(run_device).eval()
 
-# train_loader = LabDataLoader(args.train_list, args.batch_size,
-#                              num_workers=args.num_workers,
-#                              n_mfcc=args.n_mfcc,
-#                              seq_len=args.seq_len,
-#                              resolution=args.resolution,
-#                              is_train=False, max_size=0)
-# print(f'Finish load dataset, size: {len(train_loader)}')
-# for data in train_loader:
-# 	a_wav, a_img = data
-# 	print(a_wav.shape)
-# 	print(a_img.shape)
-
-with open('metadata/lab_train_3090.txt', 'r') as fr:
-	lines = fr.readlines()
-	for line in lines:
-		is_talk, filename = line.strip().split('\t')
-		if is_talk!='0':
-			print(filename)
-			a_img, a_wav = get_frame_and_wav(filename, resolution=args.resolution)
-			print(a_img.shape, a_wav.shape)
+train_loader = LabDataLoader(args.train_list, args.batch_size,
+                             num_workers=args.num_workers,
+                             n_mfcc=args.n_mfcc,
+                             seq_len=args.seq_len,
+                             resolution=args.resolution,
+                             is_train=False, max_size=0)
+print(f'Finish load dataset, size: {len(train_loader)}')
+for data in train_loader:
+	a_wav, a_img = data
+	print(a_wav.shape)
+	print(a_img.shape)
+	break
