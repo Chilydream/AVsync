@@ -29,45 +29,56 @@ from third_party.HRNet.utils_inference import get_model_by_name, get_batch_lmks
 def evaluate(model_lmk2lip, model_wav2v, model_sync, criterion_class, loader, args):
 	run_device = torch.device("cuda:0" if args.gpu else "cpu")
 
-	val_loss_class = Meter('Class Loss', 'avg', ':.4f')
+	val_loss_gt = Meter('Match Class Loss', 'avg', ':.4f')
+	val_loss_fk = Meter('Mismatch Class Loss', 'avg', ':.4f')
 	val_loss_final = Meter('Final Loss', 'avg', ':.4f')
-	val_acc_class = Meter('Class ACC', 'avg', ':.2f', '%,')
+	val_acc_gt = Meter('Match Class ACC', 'avg', ':.2f', '%, ')
+	val_acc_fk = Meter('Mismatch Class ACC', 'avg', ':.2f', '%, ')
+	val_acc_all = Meter('All Class ACC', 'avg', ':.2f', '%, ')
 	val_timer = Meter('Time', 'time', ':3.0f')
 	val_timer.set_start_time(time.time())
+	label_one = torch.ones(args.batch_size, dtype=torch.long, device=run_device)
+	label_zero = torch.zeros(args.batch_size, dtype=torch.long, device=run_device)
 
 	print('\tEvaluating Result:')
 	for data in loader:
-		a_wav, a_lmk, a_wid = data
-		a_wav = a_wav.to(run_device)
+		a_lmk, a_wav_gt, a_wav_fk = data
 		a_lmk = a_lmk.to(run_device)
-		a_wid = a_wid.to(run_device)
-		a_lip = model_lmk2lip(a_lmk)
-		a_voice = model_wav2v(a_wav)
+		a_wav_gt = a_wav_gt.to(run_device)
+		a_wav_fk = a_wav_fk.to(run_device)
 
-		new_idx = get_rand_idx(args.batch_size)
-		a_voice = a_voice[new_idx, :]
-		label_gt = get_gt_label(a_wid, new_idx).to(run_device)
-		label_pred = model_sync(a_lip, a_voice)
+		a_lip = model_lmk2lip(a_lmk)
+		a_voice_gt = model_wav2v(a_wav_gt)
+		a_voice_fk = model_wav2v(a_wav_fk)
+
+		label_pred_gt = model_sync(a_lip, a_voice_gt)
+		label_pred_fk = model_sync(a_lip, a_voice_fk)
+		print(f'\npred gt \n{label_pred_gt}\n')
+		print(f'\npred fk \n{label_pred_fk}\n')
 
 		# ======================计算唇部特征单词分类损失===========================
-		loss_class = criterion_class(label_pred, label_gt)
-		correct_num_class = torch.sum(torch.argmax(label_pred, dim=1) == label_gt).item()
+		loss_class_gt = criterion_class(label_pred_gt, label_one)
+		loss_class_fk = criterion_class(label_pred_fk, label_zero)
+		correct_num_gt = torch.sum(torch.argmax(label_pred_gt, dim=1) == label_one).item()
+		correct_num_fk = torch.sum(torch.argmax(label_pred_fk, dim=1) == label_zero).item()
 
-		loss_final = loss_class
+		loss_final = loss_class_gt+loss_class_fk
 
 		# ==========计量更新============================
-		val_acc_class.update(correct_num_class*100/len(label_gt))
-		val_loss_class.update(loss_class.item())
+		val_acc_gt.update(correct_num_gt*100/len(label_one))
+		val_acc_gt.update(correct_num_fk*100/len(label_zero))
+		val_acc_all.update((val_acc_gt.avg+val_acc_fk.avg)*0.5)
+		val_loss_gt.update(loss_class_gt.item())
+		val_loss_fk.update(loss_class_fk.item())
 		val_loss_final.update(loss_final.item())
 		val_timer.update(time.time())
 		print(f'\r\tBatch:{val_timer.count:04d}/{len(loader):04d}  {val_timer}{val_loss_final}',
-		      f'{val_acc_class} EMA ACC: {val_acc_class.avg_ema:.2f}%, ',
-		      f'{val_loss_class}',
+		      f'{val_acc_all}{val_acc_gt}{val_acc_fk}',
 		      sep='', end='     ')
 
-	val_log = {'val_loss_class': val_loss_class.avg,
+	val_log = {'val_loss_gt': val_loss_gt.avg,
 	           'val_loss_final': val_loss_final.avg,
-	           'val_acc_class': val_acc_class.avg}
+	           'val_acc_gt': val_acc_gt.avg}
 	return val_log
 
 
@@ -230,7 +241,7 @@ def main():
 		epoch_timer.set_start_time(time.time())
 		for data in train_loader:
 			a_lmk, a_wav_gt, a_wav_fk = data
-			a_img = a_img.to(run_device)
+			a_lmk = a_lmk.to(run_device)
 			a_wav_gt = a_wav_gt.to(run_device)
 			a_wav_fk = a_wav_fk.to(run_device)
 			# a_lmk = (b, seq_len, 40)

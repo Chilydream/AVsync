@@ -36,7 +36,7 @@ class LabLmkDataset(Dataset):
 		wavname = mp4name[:-3]+'wav'
 		all_lmk = torch.load(lmkname)
 		all_wav = get_wav(wavname)
-		start_pos = np.random.randint(0, all_lmk.shape[0]-50-self.seq_len)
+		start_pos = np.random.randint(0, all_lmk.shape[0]-75-self.seq_len)
 
 		avg_lmk = torch.mean(all_lmk, dim=(0, 1))
 		var_lmk = torch.var(all_lmk, dim=(0, 1))
@@ -46,8 +46,8 @@ class LabLmkDataset(Dataset):
 
 		wav_match = all_wav[int(start_pos*16000/25):
 		                    int((start_pos+self.seq_len)*16000/25)]
-		wav_mismatch = all_wav[int((start_pos+1)*16000/25):
-		                       int((start_pos+1+self.seq_len)*16000/25)]
+		wav_mismatch = all_wav[int((start_pos+25)*16000/25):
+		                       int((start_pos+25+self.seq_len)*16000/25)]
 
 		return lmk_tensor, wav_match, wav_mismatch
 

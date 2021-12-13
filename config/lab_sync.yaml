@@ -1,6 +1,6 @@
 project_name: "Lab Dataset Synchronization"
 mode: "train"
-pretrain_model: "exp_train/003/cache/model000000000.model"
+pretrain_model: "exp_train/003/cache/model000000017.model"
 exp_dir: "exp_lab_sync"
 exp_num: "000"
 save_step: 1
