@@ -13,10 +13,9 @@ from utils.GetDataFromFile import get_mfcc, get_frame_tensor, get_wav, get_frame
 
 
 class LabDataset(Dataset):
-	def __init__(self, dataset_file, n_mfcc, seq_len, resolution, max_size):
+	def __init__(self, dataset_file, seq_len, resolution, max_size):
 		super(LabDataset, self).__init__()
 		self.dataset_file_name = dataset_file
-		self.n_mfcc = n_mfcc
 		self.seq_len = seq_len
 		self.resolution = resolution
 		self.max_size = max_size
@@ -34,7 +33,9 @@ class LabDataset(Dataset):
 
 	def __getitem__(self, item):
 		mp4_name = self.file_list[item]
-		img_tensor, wav_tensor = get_frame_and_wav(mp4_name, resolution=self.resolution)
+		img_tensor, wav_tensor = get_frame_and_wav(mp4_name,
+		                                           seq_len=self.seq_len,
+		                                           resolution=self.resolution)
 		return wav_tensor, img_tensor
 
 	def __len__(self):
