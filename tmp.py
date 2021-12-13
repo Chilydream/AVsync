@@ -40,18 +40,23 @@ from third_party.yolo.yolo_models.yolo import Model as yolo_model
 from third_party.yolo.yolo_utils.util_yolo import face_detect
 from third_party.HRNet.utils_inference import get_model_by_name, get_batch_lmks
 
-args = TrainOptions('config/lab_sync.yaml').parse()
-run_device = torch.device('cuda:0')
-img_resolution = 256
-face_resolution = 128
+# cnt = 0
+# while True:
+# 	cnt += 1
+# 	print(f'{cnt}th tries.')
+# 	try:
+# 		os.system('python simple_try.py')
+# 	except:
+# 		print(f"don't worry")
 
-train_loader = LabDataLoader(args.train_list, args.batch_size,
-                             num_workers=args.num_workers,
-                             seq_len=args.seq_len,
-                             resolution=args.resolution,
-                             is_train=False, max_size=0)
-print(f'Finish load dataset, size: {len(train_loader)}')
-for data in train_loader:
-	a_wav, a_img = data
-	print(a_wav.shape)
-	print(a_img.shape)
+args = TrainOptions('config/lab_sync.yaml').parse()
+
+with open(args.test_list, 'r') as fr:
+	lines = fr.readlines()
+	cnt = 0
+	for line in lines:
+		cnt += 1
+		print(f'{"="*20}extracting {cnt:03d}/{len(lines)} files{"="*20}')
+		is_talk, filename = line.strip().split('\t')
+		if is_talk!='0':
+			extract_wav(filename)

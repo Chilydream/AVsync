@@ -9,7 +9,8 @@ import wandb
 import sys
 
 from model.SyncModel import SyncModel
-from utils.accuracy import get_new_idx, get_gt_label, get_rand_idx
+from utils.accuracy import get_gt_label, get_rand_idx
+from utils.data_utils.LabLmk import LabLmkDataLoader
 from utils.data_utils.LabRaw import LabDataLoader
 
 sys.path.append('/home/tliu/fsx/project/AVsync/third_party/yolo')
@@ -146,17 +147,15 @@ def main():
 	loader_timer = Meter('Time', 'time', ':3.0f', end='')
 	print('%sStart loading dataset%s'%('='*20, '='*20))
 	loader_timer.set_start_time(time.time())
-	train_loader = LabDataLoader(args.train_list, batch_size,
-	                             num_workers=args.num_workers,
-	                             resolution=args.img_resolution,
-	                             seq_len=args.seq_len,
-	                             is_train=True, max_size=0)
+	train_loader = LabLmkDataLoader(args.train_list, batch_size,
+	                                num_workers=args.num_workers,
+	                                seq_len=args.seq_len,
+	                                is_train=True, max_size=0)
 
-	valid_loader = LabDataLoader(args.val_list, batch_size,
-	                             num_workers=args.num_workers,
-	                             resolution=args.img_resolution,
-	                             seq_len=args.seq_len,
-	                             is_train=True, max_size=0)
+	valid_loader = LabLmkDataLoader(args.val_list, batch_size,
+	                                num_workers=args.num_workers,
+	                                seq_len=args.seq_len,
+	                                is_train=True, max_size=0)
 	loader_timer.update(time.time())
 	print(f'Batch Num in Train Loader: {len(train_loader)}')
 	print(f'Finish loading dataset {loader_timer}')
@@ -181,11 +180,10 @@ def main():
 				         valid_loader, args)
 		else:
 			del valid_loader
-			test_loader = LabDataLoader(args.val_list, batch_size,
-			                            num_workers=args.num_workers,
-			                            resolution=args.img_resolution,
-			                            seq_len=args.seq_len,
-			                            is_train=True, max_size=0)
+			test_loader = LabLmkDataLoader(args.test_list, batch_size,
+			                               num_workers=args.num_workers,
+			                               seq_len=args.seq_len,
+			                               is_train=True, max_size=0)
 			with torch.no_grad():
 				model_lmk2lip.eval()
 				model_wav2v.eval()
@@ -231,34 +229,12 @@ def main():
 		batch_cnt = 0
 		epoch_timer.set_start_time(time.time())
 		for data in train_loader:
-			a_img, a_wav_gt, a_wav_fk = data
+			a_lmk, a_wav_gt, a_wav_fk = data
 			a_img = a_img.to(run_device)
 			a_wav_gt = a_wav_gt.to(run_device)
 			a_wav_fk = a_wav_fk.to(run_device)
-			# a_img = (b, seq_len, 3, img_reso, img_reso)
-			# a_wav = (b, (seq_len-1)*16000)
-			a_lmk = []
-			for img_seq in a_img:
-				# img_seq = (seq, 3, 256, 256)
-				face_list = []
-				bbox_list = face_detect(model_yolo, img_seq)
-				for i, bbox in enumerate(bbox_list):
-					x1, y1, x2, y2 = bbox
-					if x1>=x2:
-						x1, x2 = 0, args.img_resolution-1
-					if y1>=y2:
-						y1, y2 = 0, args.img_resolution-1
-					face_list.append(pad_resize(img_seq[i, :, y1:y2, x1:x2]))
-				face_tensor = torch.stack(face_list).to(run_device)
-				lmk_seq = get_batch_lmks(model_hrnet, face_tensor,
-				                         output_size=(args.face_resolution, args.face_resolution))
-				# lmk_seq = (seq_len, 68, 2)
-				avg_lmk = torch.mean(lmk_seq, dim=(0, 1))
-				var_lmk = torch.var(lmk_seq, dim=(0, 1))
-				lmk_seq = (lmk_seq-avg_lmk)/var_lmk
-				lmk_seq = torch.flatten(lmk_seq[:, 48:68, :], start_dim=1)
-				a_lmk.append(lmk_seq)
-			a_lmk = torch.stack(a_lmk).to(run_device)
+			# a_lmk = (b, seq_len, 40)
+			# a_wav = (b, seq_len*16000)
 
 			a_lip = model_lmk2lip(a_lmk)
 			a_voice_gt = model_wav2v(a_wav_gt)

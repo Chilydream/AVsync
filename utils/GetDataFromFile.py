@@ -90,11 +90,11 @@ def get_frame_tensor(filename, seq_len=0, resolution=0):
 	# todo: 所有的LRW视频都是25fps,一共29帧,分辨率为256*256
 	cap = cv2.VideoCapture(filename)
 	cap.set(cv2.CAP_PROP_FPS, 25)
-	if seq_len>0:
-		video_len = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-		start_frame = np.random.randint(0, video_len-5*seq_len)
-		start_frame = max(0, start_frame)
-		cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
+	# if seq_len>0:
+	# 	video_len = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+	# 	start_frame = np.random.randint(0, video_len-5*seq_len)
+	# 	start_frame = max(0, start_frame)
+	# 	cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
 
 	image_list = []
 	image_cnt = 0
@@ -113,8 +113,8 @@ def get_frame_tensor(filename, seq_len=0, resolution=0):
 
 	cap.release()
 	# im的形状是（256,256,3）
-	if len(image_list)<seq_len:
-		print(f'\nERROR: image_list is {seq_len}!!\n')
+	# if len(image_list)<seq_len:
+	# 	print(f'\nERROR: image_list is {seq_len}!!\n')
 	im = np.stack(image_list, axis=3)
 	# stack操作后 im的形状是（256,256,3,29）
 	im = np.transpose(im, (3, 2, 0, 1))
