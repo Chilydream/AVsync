@@ -125,13 +125,16 @@ def main():
 			wandb.watch(model_iter)
 
 	# ============================度量载入===============================
-	epoch_loss_class = Meter('Class Loss', 'avg', ':.4f')
+	epoch_loss_class_gt = Meter('Match Class Loss', 'avg', ':.4f')
+	epoch_loss_class_fk = Meter('Mismatch Class Loss', 'avg', ':.4f')
 	epoch_loss_final = Meter('Final Loss', 'avg', ':.4f')
-	epoch_acc_sync = Meter('Class ACC', 'avg', ':.2f', '%, ')
+	epoch_acc_gt = Meter('Match Class ACC', 'avg', ':.2f', '%, ')
+	epoch_acc_fk = Meter('Mismatch Class ACC', 'avg', ':.2f', '%, ')
+	epoch_acc_all = Meter('All Class ACC', 'avg', ':.2f', '%, ')
 	epoch_timer = Meter('Time', 'time', ':4.0f')
 
-	epoch_reset_list = [epoch_loss_final, epoch_loss_class,
-	                    epoch_acc_sync,
+	epoch_reset_list = [epoch_loss_final, epoch_loss_class_gt,
+	                    epoch_acc_gt,
 	                    epoch_timer, ]
 	if args.mode in ('train', 'continue'):
 		print('Train Parameters')
@@ -219,47 +222,78 @@ def main():
 
 	# ============================开始训练===============================
 	print('%sStart Training%s'%('='*20, '='*20))
+
+	label_zero = torch.zeros(args.batch_size, dtype=torch.int, device=run_device)
+	label_one = torch.ones(args.batch_size, dtype=torch.int, device=run_device)
 	for epoch in range(start_epoch, args.epoch):
 		print('\nEpoch: %d'%epoch)
 		batch_cnt = 0
 		epoch_timer.set_start_time(time.time())
 		for data in train_loader:
-			a_img, a_wav_gt, a_wav_fake = data
+			a_img, a_wav_gt, a_wav_fk = data
+			a_img = a_img.to(run_device)
+			a_wav_gt = a_wav_gt.to(run_device)
+			a_wav_fk = a_wav_fk.to(run_device)
+			# a_img = (b, seq_len, 3, img_reso, img_reso)
+			# a_wav = (b, (seq_len-1)*16000)
+			a_lmk = []
+			for img_seq in a_img:
+				face_list = []
+				bbox_list = face_detect(model_yolo, img_seq)
+				for i, bbox in enumerate(bbox_list):
+					x1, y1, x2, y2 = bbox
+					if x1>=x2:
+						x1, x2 = 0, args.img_resolution-1
+					if y1>=y2:
+						y1, y2 = 0, args.img_resolution-1
+					face_list.append(pad_resize(img_seq[i, 3, y1:y2, x1:x2]))
+				face_tensor = torch.stack(face_list)
+				lmk_seq = get_batch_lmks(model_hrnet, face_tensor,
+				                         output_size=(args.face_resolution, args.face_resolution))
+				print(lmk_seq.shape)
+				# lmk_seq = (seq_len, 68, 2)
+				avg_lmk = torch.mean(lmk_seq, dim=(0, 1))
+				var_lmk = torch.var(lmk_seq, dim=(0, 1))
+				lmk_seq = (lmk_seq-avg_lmk)/var_lmk
+				lmk_seq = torch.flatten(lmk_seq[:, 48:68, :], start_dim=1)
+				a_lmk.append(lmk_seq)
+			a_lmk = torch.stack(a_lmk).to(run_device)
 
-			a_wav = a_wav.to(run_device)
-			a_lmk = a_lmk.to(run_device)
-			a_wid = a_wid.to(run_device)
 			a_lip = model_lmk2lip(a_lmk)
-			a_voice = model_wav2v(a_wav)
+			a_voice_gt = model_wav2v(a_wav_gt)
+			a_voice_fk = model_wav2v(a_wav_fk)
 
-			new_idx = get_rand_idx(args.batch_size)
-			a_voice = a_voice[new_idx, :]
-			label_gt = get_gt_label(a_wid, new_idx).to(run_device)
-			label_pred = model_sync(a_lip, a_voice)
+			label_pred_gt = model_sync(a_lip, a_voice_gt)
+			label_pred_fk = model_sync(a_lip, a_voice_fk)
 
 			# ======================计算唇部特征单词分类损失===========================
-			loss_class = criterion_class(label_pred, label_gt)
-			correct_num_class = torch.sum(torch.argmax(label_pred, dim=1) == label_gt).item()
+			loss_class_gt = criterion_class(label_pred_gt, label_one)
+			loss_class_fk = criterion_class(label_pred_fk, label_zero)
+			correct_num_gt = torch.sum(torch.argmax(label_pred_gt, dim=1) == label_zero).item()
+			correct_num_fk = torch.sum(torch.argmax(label_pred_fk, dim=1) == label_one).item()
 
 			# ==========================反向传播===============================
 			optim_lmk2lip.zero_grad()
 			optim_wav2v.zero_grad()
 			optim_sync.zero_grad()
-			loss_final = loss_class
+			loss_final = loss_class_gt+loss_class_fk
 			loss_final.backward()
 			optim_lmk2lip.step()
 			optim_wav2v.step()
 			optim_sync.step()
 
 			# ==========计量更新============================
-			epoch_acc_sync.update(correct_num_class*100/len(label_gt))
-			epoch_loss_class.update(loss_class.item())
+			epoch_acc_gt.update(correct_num_gt*100/len(label_pred_gt))
+			epoch_acc_fk.update(correct_num_fk*100/len(label_pred_fk))
+			epoch_acc_all.update((epoch_acc_gt.avg+epoch_acc_fk.avg)*0.5)
+			epoch_loss_class_gt.update(loss_class_gt.item())
+			epoch_loss_class_fk.update(loss_class_fk.item())
 			epoch_loss_final.update(loss_final.item())
 			epoch_timer.update(time.time())
 			batch_cnt += 1
 			print(f'\rBatch:{batch_cnt:04d}/{len(train_loader):04d}  {epoch_timer}{epoch_loss_final}',
-			      f'{epoch_acc_sync}EMA ACC: {epoch_acc_sync.avg_ema:.2f}%, ',
-			      f'{epoch_loss_class}',
+			      f'{epoch_acc_gt}EMA ACC: {epoch_acc_gt.avg_ema:.2f}%, ',
+			      f'{epoch_loss_class_gt}',
 			      sep='', end='     ')
 
 		sch_lmk2lip.step()
@@ -269,12 +303,12 @@ def main():
 		print(f'Current Model M2V Learning Rate is {sch_lmk2lip.get_last_lr()}')
 		print(f'Current Model V2T Learning Rate is {sch_wav2v.get_last_lr()}')
 		print(f'Current Model Sync Learning Rate is {sch_sync.get_last_lr()}')
-		print('Epoch:', epoch, epoch_loss_final, epoch_acc_sync,
+		print('Epoch:', epoch, epoch_loss_final, epoch_acc_gt,
 		      file=file_train_log)
 		log_dict = {'epoch': epoch,
 		            epoch_loss_final.name: epoch_loss_final.avg,
-		            epoch_loss_class.name: epoch_loss_class.avg,
-		            epoch_acc_sync.name: epoch_acc_sync.avg}
+		            epoch_loss_class_gt.name: epoch_loss_class_gt.avg,
+		            epoch_acc_gt.name: epoch_acc_gt.avg}
 		for meter in epoch_reset_list:
 			meter.reset()
 
