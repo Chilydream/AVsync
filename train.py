@@ -49,7 +49,8 @@ def evaluate(model_lmk2lip, model_wav2v, model_sync, criterion_class, loader, ar
 		a_lip = model_lmk2lip(a_lmk)
 		a_voice = model_wav2v(a_wav)
 
-		new_idx = get_rand_idx(args.batch_size)
+		# new_idx = get_rand_idx(args.batch_size)
+		new_idx = np.arange(0, args.batch_size)
 		a_voice = a_voice[new_idx, :]
 		label_gt = get_gt_label(a_wid, new_idx).to(run_device)
 		label_pred = model_sync(a_lip, a_voice)
@@ -152,7 +153,7 @@ def main():
 	                             n_mfcc=args.n_mfcc,
 	                             resolution=args.resolution,
 	                             seq_len=args.seq_len,
-	                             is_train=False, max_size=0)
+	                             is_train=True, max_size=0)
 	loader_timer.update(time.time())
 	print(f'Batch Num in Train Loader: {len(train_loader)}')
 	print(f'Finish loading dataset {loader_timer}')
