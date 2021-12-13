@@ -45,11 +45,10 @@ class LabDataset(Dataset):
 
 
 class LabDataLoader(DataLoader):
-	def __init__(self, dataset_file, batch_size, num_workers, n_mfcc, seq_len, resolution, is_train=True, max_size=0):
+	def __init__(self, dataset_file, batch_size, num_workers, seq_len, resolution, is_train=True, max_size=0):
 		# todo: max_size不为0时，似乎不会进行shuffle，有待解决
 		self.dataset_file = dataset_file
 		self.dataset = LabDataset(dataset_file=dataset_file,
-		                          n_mfcc=n_mfcc,
 		                          seq_len=seq_len,
 		                          resolution=resolution,
 		                          max_size=max_size)

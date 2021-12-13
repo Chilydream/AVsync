@@ -54,7 +54,6 @@ face_resolution = 128
 
 train_loader = LabDataLoader(args.train_list, args.batch_size,
                              num_workers=args.num_workers,
-                             n_mfcc=args.n_mfcc,
                              seq_len=args.seq_len,
                              resolution=args.resolution,
                              is_train=False, max_size=0)
@@ -63,4 +62,3 @@ for data in train_loader:
 	a_wav, a_img = data
 	print(a_wav.shape)
 	print(a_img.shape)
-	break
