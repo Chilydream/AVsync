@@ -1,6 +1,6 @@
 project_name: "Lab Dataset Synchronization"
 mode: "train"
-pretrain_model: "pretrain_model/pre_av.model"
+pretrain_model: "pretrain_model/LRW_2.model"
 exp_dir: "exp_lab_sync"
 exp_num: "000"
 save_step: 1
@@ -32,5 +32,7 @@ voice_emb: 256
 lmk_emb: 40
 n_mfcc: 0
 resolution: 256
+img_resolution: 256
+face_resolution: 128
 seq_len: 29
 triplet_margin: 1.0

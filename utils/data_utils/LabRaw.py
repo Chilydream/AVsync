@@ -27,16 +27,16 @@ class LabDataset(Dataset):
 		with open(dataset_file) as fr:
 			for idx, line in enumerate(fr.readlines()):
 				is_talk, filename = line.strip().split('\t')
-				if is_talk!='0':
+				if is_talk != '0':
 					self.file_list.append(filename)
 		self.nfile = len(self.file_list)
 
 	def __getitem__(self, item):
 		mp4_name = self.file_list[item]
-		img_tensor, wav_tensor = get_frame_and_wav(mp4_name,
-		                                           seq_len=self.seq_len,
-		                                           resolution=self.resolution)
-		return wav_tensor, img_tensor
+		img_tensor, wav_match, wav_mismatch = get_frame_and_wav(mp4_name,
+		                                                        seq_len=self.seq_len,
+		                                                        resolution=self.resolution)
+		return img_tensor, wav_match, wav_mismatch
 
 	def __len__(self):
 		if self.max_size<=0:

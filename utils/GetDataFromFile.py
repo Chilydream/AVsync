@@ -40,9 +40,12 @@ def get_frame_and_wav(filename, seq_len=29, video_fps=25, resolution=0):
 		image_list.append(image)
 
 	wav_array = audio_file_clip.to_soundarray(fps=16000)[:, 0]
-	wav_array = wav_array[int(start_time*16000):
+	wav_match = wav_array[int(start_time*16000):
 	                      int((start_time+(seq_len-1)/video_fps)*16000)]
-	wav_tensor = torch.FloatTensor(wav_array)
+	wav_mismatch = wav_array[int((start_time+1)*16000):
+	                         int((start_time+1+(seq_len-1)/video_fps)*16000)]
+	wav_match = torch.FloatTensor(wav_match)
+	wav_mismatch = torch.FloatTensor(wav_mismatch)
 
 	video_file_clip.close()
 	im = np.stack(image_list, axis=3)
@@ -51,7 +54,7 @@ def get_frame_and_wav(filename, seq_len=29, video_fps=25, resolution=0):
 	# im的形状是（29,3,256,256）
 	im_tensor = torch.FloatTensor(im)
 
-	return im_tensor, wav_tensor
+	return im_tensor, wav_match, wav_mismatch
 
 
 def make_image_square(img):

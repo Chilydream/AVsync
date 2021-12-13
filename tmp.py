@@ -49,8 +49,8 @@ face_resolution = 128
 # model_yolo.to(run_device)
 # model_yolo.load_state_dict(torch.load('pretrain_model/raw_yolov5s.pt',
 #                                       map_location=run_device))
-# model_hrnet = get_model_by_name('300W', root_models_path='pretrain_model')
-# model_hrnet = model_hrnet.to(run_device).eval()
+model_hrnet = get_model_by_name('300W', root_models_path='pretrain_model')
+model_hrnet = model_hrnet.to(run_device).eval()
 
 train_loader = LabDataLoader(args.train_list, args.batch_size,
                              num_workers=args.num_workers,

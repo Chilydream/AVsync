@@ -1,6 +1,37 @@
 代码位置：248:/root/ChineseDataset/AVsync
 
-模型调用说明：
+yolo模型调用说明：
+```python
+import sys
+sys.path.append('./third_party/yolo')
+import torch
+from third_party.yolo.yolo_models.yolo import Model as yolo_model
+from third_party.yolo.yolo_utils.util_yolo import face_detect
+
+model_yolo = yolo_model(cfg='config/yolov5s.yaml').float().fuse().eval()
+model_yolo.load_state_dict(torch.load('pretrain_model/raw_yolov5s.pt'))
+
+batch_size = 8
+img_batch = torch.randn((batch_size, 3, 256, 256))
+bbox_list = face_detect(model_yolo, img_batch)
+```
+
+hrnet模型调用说明：
+```python
+import sys
+sys.path.append('./third_party/HRNet')
+import torch
+from third_party.HRNet.utils_inference import get_model_by_name, get_batch_lmks
+
+model_hrnet = get_model_by_name('300W', root_models_path='pretrain_model')
+model_hrnet = model_hrnet.eval()
+
+batch_size = 8
+face_batch = torch.randn((batch_size, 3, 256, 256))
+lmk_list = get_batch_lmks(model_hrnet, face_batch)
+```
+
+匹配模型调用说明：
 ```python
 import torch
 from model.Lmk2LipModel import Lmk2LipModel
