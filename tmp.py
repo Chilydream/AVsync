@@ -24,12 +24,13 @@ import sys
 from model.Lmk2LipModel import Lmk2LipModel
 from model.VGGModel import VGGVoice
 from utils.data_utils.LRWImageLmkTriplet import LRWImageLmkTripletDataLoader
+from utils.data_utils.LabRaw import LabDataset, LabDataLoader
 from utils.extract_wav import extract_wav
 
 sys.path.append('./third_party/yolo')
 sys.path.append('./third_party/HRNet')
 
-from utils.GetDataFromFile import get_mfcc, get_wav
+from utils.GetDataFromFile import get_mfcc, get_wav, get_frame_moviepy, get_frame_and_wav
 from utils.extract_lmk import extract_lmk
 from utils.tensor_utils import PadSquare
 from utils.GetConsoleArgs import TrainOptions
@@ -39,27 +40,27 @@ from third_party.yolo.yolo_models.yolo import Model as yolo_model
 from third_party.yolo.yolo_utils.util_yolo import face_detect
 from third_party.HRNet.utils_inference import get_model_by_name, get_batch_lmks
 
-mp4name = 'test/2cut2.mp4'
-wavname = mp4name[:-3]+'wav'
-wav_array = get_wav(wavname)
-wav_tensor = torch.tensor(wav_array)
-# torch.Size([batch_size, 19456])
-torchfb = torchaudio.transforms.MelSpectrogram(sample_rate=16000, n_fft=512, win_length=400,
-                                               hop_length=175, f_min=0.0, f_max=8000,
-                                               pad=0, n_mels=40)
-mfcc_tensor = torchfb(wav_tensor)
-# torch.Size([batch_size, nmfcc=40, 112])
+args = TrainOptions('config/lab_sync.yaml').parse()
+run_device = torch.device('cuda:0')
+img_resolution = 256
+face_resolution = 128
 
-video_file_clip = VideoFileClip(mp4name)
-video_file_clip = video_file_clip.to_RGB()
-f0 = video_file_clip.make_frame(0)
-print(type(f0))
-print(f0.shape)
-# audio_file_clip = video_file_clip.audio
-# a = audio_file_clip.to_soundarray(fps=16000)
-# a = a[:, 0]
-# a = torch.tensor(a, dtype=torch.float32)
-# print(a.shape)
-# b = torchfb(a)
-# print(b.shape)
-video_file_clip.close()
+# model_yolo = yolo_model(cfg='config/yolov5s.yaml').float().fuse().eval()
+# model_yolo.to(run_device)
+# model_yolo.load_state_dict(torch.load('pretrain_model/raw_yolov5s.pt',
+#                                       map_location=run_device))
+# model_hrnet = get_model_by_name('300W', root_models_path='pretrain_model')
+# model_hrnet = model_hrnet.to(run_device).eval()
+
+train_loader = LabDataLoader(args.train_list, args.batch_size,
+                             num_workers=args.num_workers,
+                             n_mfcc=args.n_mfcc,
+                             seq_len=args.seq_len,
+                             resolution=args.resolution,
+                             is_train=False, max_size=0)
+print(f'Finish load dataset, size: {len(train_loader)}')
+for data in train_loader:
+	a_wav, a_img = data
+	print(a_wav.shape)
+	print(a_img.shape)
+	break

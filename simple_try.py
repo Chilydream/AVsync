@@ -1,3 +1,4 @@
+import glob
 import os
 import multiprocessing
 import sys
@@ -11,15 +12,43 @@ from third_party.HRNet.utils_inference import get_model_by_name
 from utils.GetConsoleArgs import TrainOptions
 from utils.extract_lmk import extract_lmk
 
-args = TrainOptions('config/lmk2text.yaml').parse()
-run_device = torch.device("cuda" if args.gpu else "cpu")
-model_hrnet = get_model_by_name('300W', root_models_path='pretrain_model')
-model_hrnet = model_hrnet.to(run_device).eval()
+args = TrainOptions('config/lab_sync.yaml').parse()
+with open(args.train_list, 'w') as f_train,	open(args.val_list, 'w') as f_val, open(args.test_list, 'w') as f_test:
+	dataset_dir = '/home/tliu/fsx/dataset/data1204'
+	video_list = glob.glob(os.path.join(dataset_dir, '*'))
+	for i, filename in enumerate(video_list):
+		print(filename)
+		if i%10<8:
+			if filename[32]=='1':
+				print(f'0\t{filename}', file=f_train)
+			elif filename[32]=='2':
+				print(f'1\t{filename}', file=f_train)
+		elif i%10==8:
+			if filename[32]=='1':
+				print(f'0\t{filename}', file=f_val)
+			elif filename[32]=='2':
+				print(f'1\t{filename}', file=f_val)
+		else:
+			if filename[32]=='1':
+				print(f'0\t{filename}', file=f_test)
+			elif filename[32]=='2':
+				print(f'1\t{filename}', file=f_test)
 
-with open('metadata/LRW_test_3090.txt', 'r') as fr:
-	lines = fr.readlines()
-	for idx in range(len(lines)):
-		line = lines[idx]
-		_, mp4name = line.strip().split('\t')
-		extract_lmk(model_hrnet, mp4name, run_device)
-		print(idx)
+	dataset_dir = '/home/tliu/fsx/dataset/lab50-new/silent'
+	video_list = glob.glob(os.path.join(dataset_dir, '*'))
+	for i, filename in enumerate(video_list):
+		if i%10<8:
+			print(f'0\t{filename}', file=f_train)
+		elif i%10==8:
+			print(f'0\t{filename}', file=f_val)
+		else:
+			print(f'0\t{filename}', file=f_test)
+	dataset_dir = '/home/tliu/fsx/dataset/lab50-new/talk'
+	video_list = glob.glob(os.path.join(dataset_dir, '*'))
+	for i, filename in enumerate(video_list):
+		if i%10<8:
+			print(f'1\t{filename}', file=f_train)
+		elif i%10==8:
+			print(f'1\t{filename}', file=f_val)
+		else:
+			print(f'1\t{filename}', file=f_test)

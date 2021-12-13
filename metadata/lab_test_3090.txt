@@ -1,0 +1,11 @@
+0	/home/tliu/fsx/dataset/lab50-new/silent/1haoyitong.mp4
+0	/home/tliu/fsx/dataset/lab50-new/silent/1jinguodong.mp4
+0	/home/tliu/fsx/dataset/lab50-new/silent/1manabo.mp4
+0	/home/tliu/fsx/dataset/lab50-new/silent/1wangqiwei.mp4
+0	/home/tliu/fsx/dataset/lab50-new/silent/1zhangqian.mp4
+0	/home/tliu/fsx/dataset/lab50-new/silent/1郭开宇_.mp4
+1	/home/tliu/fsx/dataset/lab50-new/talk/2hongyinhao.mp4
+1	/home/tliu/fsx/dataset/lab50-new/talk/2liujie.mp4
+1	/home/tliu/fsx/dataset/lab50-new/talk/2sunjiaming.mp4
+1	/home/tliu/fsx/dataset/lab50-new/talk/2zhangmengxiang.mp4
+1	/home/tliu/fsx/dataset/lab50-new/talk/2郭开宇.mp4

@@ -191,7 +191,7 @@ def main():
 				evaluate(model_lmk2lip, model_wav2v, model_sync,
 				         criterion_class,
 				         test_loader, args)
-		print(f'Finish Evaluation\n\n')
+		print(f'\n\nFinish Evaluation\n\n')
 		return
 	elif args.mode.lower() in ['continue']:
 		print('Loading pretrained model', args.pretrain_model)
