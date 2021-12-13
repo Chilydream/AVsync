@@ -145,8 +145,8 @@ def main():
 	epoch_acc_all = Meter('All Class ACC', 'avg', ':.2f', '%, ')
 	epoch_timer = Meter('Time', 'time', ':4.0f')
 
-	epoch_reset_list = [epoch_loss_final, epoch_loss_class_gt,
-	                    epoch_acc_gt,
+	epoch_reset_list = [epoch_loss_final, epoch_loss_class_gt, epoch_loss_class_fk,
+	                    epoch_acc_gt, epoch_acc_fk, epoch_acc_all,
 	                    epoch_timer, ]
 	if args.mode in ('train', 'continue'):
 		print('Train Parameters')
