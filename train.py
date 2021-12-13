@@ -12,7 +12,7 @@ import wandb
 import sys
 
 from model.SyncModel import SyncModel
-from utils.accuracy import get_new_idx, get_gt_label, get_rand_idx
+from utils.accuracy import get_gt_label, get_rand_idx
 from utils.data_utils.LRWImageLmkTriplet import LRWImageLmkTripletDataLoader
 from utils.data_utils.LRWRaw import LRWDataLoader
 from utils.data_utils.LRWTriplet import LRWTripletDataLoader

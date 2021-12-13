@@ -89,6 +89,7 @@ def get_frame_moviepy(filename, seq_len=29, fps=25, resolution=0):
 def get_frame_tensor(filename, seq_len=0, resolution=0):
 	# todo: 所有的LRW视频都是25fps,一共29帧,分辨率为256*256
 	cap = cv2.VideoCapture(filename)
+	cap.set(cv2.CAP_PROP_FPS, 25)
 	if seq_len>0:
 		video_len = cap.get(cv2.CAP_PROP_FRAME_COUNT)
 		start_frame = np.random.randint(0, video_len-5*seq_len)
