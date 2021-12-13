@@ -253,8 +253,8 @@ def main():
 
 			label_pred_gt = model_sync(a_lip, a_voice_gt)
 			label_pred_fk = model_sync(a_lip, a_voice_fk)
-			print(f'\npred gt \n{label_pred_gt}\n')
-			print(f'\npred fk \n{label_pred_fk}\n')
+			# print(f'\npred gt \n{label_pred_gt}\n')
+			# print(f'\npred fk \n{label_pred_fk}\n')
 
 			# ======================计算唇部特征单词分类损失===========================
 			loss_class_gt = criterion_class(label_pred_gt, label_one)
@@ -322,11 +322,11 @@ def main():
 				model_wav2v.eval()
 				model_sync.eval()
 				criterion_class.eval()
-				try:
-					log_dict.update(evaluate(model_lmk2lip, model_wav2v, model_sync,
-					                         criterion_class, valid_loader, args))
-				except:
-					print('Evaluating Error')
+				# try:
+				log_dict.update(evaluate(model_lmk2lip, model_wav2v, model_sync,
+				                         criterion_class, valid_loader, args))
+				# except:
+				# 	print('Evaluating Error')
 				model_lmk2lip.train()
 				model_wav2v.train()
 				model_sync.train()

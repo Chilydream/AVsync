@@ -24,6 +24,7 @@ import sys
 from model.Lmk2LipModel import Lmk2LipModel
 from model.VGGModel import VGGVoice
 from utils.data_utils.LRWImageLmkTriplet import LRWImageLmkTripletDataLoader
+from utils.data_utils.LabLmk import LabLmkDataLoader
 from utils.data_utils.LabRaw import LabDataset, LabDataLoader
 from utils.extract_wav import extract_wav
 
@@ -40,23 +41,12 @@ from third_party.yolo.yolo_models.yolo import Model as yolo_model
 from third_party.yolo.yolo_utils.util_yolo import face_detect
 from third_party.HRNet.utils_inference import get_model_by_name, get_batch_lmks
 
-# cnt = 0
-# while True:
-# 	cnt += 1
-# 	print(f'{cnt}th tries.')
-# 	try:
-# 		os.system('python simple_try.py')
-# 	except:
-# 		print(f"don't worry")
-
 args = TrainOptions('config/lab_sync.yaml').parse()
 
-with open(args.test_list, 'r') as fr:
-	lines = fr.readlines()
-	cnt = 0
-	for line in lines:
-		cnt += 1
-		print(f'{"="*20}extracting {cnt:03d}/{len(lines)} files{"="*20}')
-		is_talk, filename = line.strip().split('\t')
-		if is_talk!='0':
-			extract_wav(filename)
+train_loader = LabLmkDataLoader(args.train_list, args.batch_size,
+                                num_workers=args.num_workers,
+                                seq_len=args.seq_len,
+                                is_train=True, max_size=0)
+
+for data in train_loader:
+	continue

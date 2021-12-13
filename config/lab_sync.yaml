@@ -4,7 +4,7 @@ pretrain_model: "exp_train/003/cache/model000000017.model"
 exp_dir: "exp_lab_sync"
 exp_num: "000"
 save_step: 1
-valid_step: 1
+valid_step: 0
 
 epoch: 1000
 batch_size: 4

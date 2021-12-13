@@ -32,7 +32,7 @@ model_hrnet = get_model_by_name('300W', root_models_path='pretrain_model')
 model_hrnet = model_hrnet.eval()
 model_hrnet.to(run_device)
 
-with open(args.train_list, 'r') as fr:
+with open(args.test_list, 'r') as fr:
 	lines = fr.readlines()
 	cnt = 0
 	for line in lines:

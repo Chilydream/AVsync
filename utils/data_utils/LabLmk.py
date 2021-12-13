@@ -36,7 +36,8 @@ class LabLmkDataset(Dataset):
 		wavname = mp4name[:-3]+'wav'
 		all_lmk = torch.load(lmkname)
 		all_wav = get_wav(wavname)
-		start_pos = np.random.randint(0, all_lmk.shape[0]-75-self.seq_len)
+		min_len = min(all_lmk.shape[0], len(all_wav)*25/16000)
+		start_pos = np.random.randint(0, min_len-30-self.seq_len)
 
 		avg_lmk = torch.mean(all_lmk, dim=(0, 1))
 		var_lmk = torch.var(all_lmk, dim=(0, 1))
