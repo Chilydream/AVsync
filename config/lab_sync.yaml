@@ -7,8 +7,8 @@ save_step: 1
 valid_step: 1
 
 epoch: 1000
-batch_size: 1
-num_workers: 12
+batch_size: 4
+num_workers: 2
 gpu: True
 wandb: False
 batch_first: True
@@ -31,8 +31,7 @@ lip_emb: 256
 voice_emb: 256
 lmk_emb: 40
 n_mfcc: 0
-resolution: 256
-img_resolution: 256
+img_resolution: 128
 face_resolution: 128
 seq_len: 29
 triplet_margin: 1.0

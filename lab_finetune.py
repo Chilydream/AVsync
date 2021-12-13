@@ -223,10 +223,11 @@ def main():
 	# ============================开始训练===============================
 	print('%sStart Training%s'%('='*20, '='*20))
 
-	label_zero = torch.zeros(args.batch_size, dtype=torch.int, device=run_device)
-	label_one = torch.ones(args.batch_size, dtype=torch.int, device=run_device)
+	label_zero = torch.zeros(args.batch_size, dtype=torch.long, device=run_device)
+	label_one = torch.ones(args.batch_size, dtype=torch.long, device=run_device)
+
 	for epoch in range(start_epoch, args.epoch):
-		print('\nEpoch: %d'%epoch)
+		print(f'\nEpoch: {epoch}')
 		batch_cnt = 0
 		epoch_timer.set_start_time(time.time())
 		for data in train_loader:
@@ -238,6 +239,7 @@ def main():
 			# a_wav = (b, (seq_len-1)*16000)
 			a_lmk = []
 			for img_seq in a_img:
+				# img_seq = (seq, 3, 256, 256)
 				face_list = []
 				bbox_list = face_detect(model_yolo, img_seq)
 				for i, bbox in enumerate(bbox_list):
@@ -246,11 +248,10 @@ def main():
 						x1, x2 = 0, args.img_resolution-1
 					if y1>=y2:
 						y1, y2 = 0, args.img_resolution-1
-					face_list.append(pad_resize(img_seq[i, 3, y1:y2, x1:x2]))
-				face_tensor = torch.stack(face_list)
+					face_list.append(pad_resize(img_seq[i, :, y1:y2, x1:x2]))
+				face_tensor = torch.stack(face_list).to(run_device)
 				lmk_seq = get_batch_lmks(model_hrnet, face_tensor,
 				                         output_size=(args.face_resolution, args.face_resolution))
-				print(lmk_seq.shape)
 				# lmk_seq = (seq_len, 68, 2)
 				avg_lmk = torch.mean(lmk_seq, dim=(0, 1))
 				var_lmk = torch.var(lmk_seq, dim=(0, 1))
@@ -265,12 +266,14 @@ def main():
 
 			label_pred_gt = model_sync(a_lip, a_voice_gt)
 			label_pred_fk = model_sync(a_lip, a_voice_fk)
+			print(f'\npred gt \n{label_pred_gt}\n')
+			print(f'\npred fk \n{label_pred_fk}\n')
 
 			# ======================计算唇部特征单词分类损失===========================
 			loss_class_gt = criterion_class(label_pred_gt, label_one)
 			loss_class_fk = criterion_class(label_pred_fk, label_zero)
-			correct_num_gt = torch.sum(torch.argmax(label_pred_gt, dim=1) == label_zero).item()
-			correct_num_fk = torch.sum(torch.argmax(label_pred_fk, dim=1) == label_one).item()
+			correct_num_gt = torch.sum(torch.argmax(label_pred_gt, dim=1) == label_one).item()
+			correct_num_fk = torch.sum(torch.argmax(label_pred_fk, dim=1) == label_zero).item()
 
 			# ==========================反向传播===============================
 			optim_lmk2lip.zero_grad()
@@ -292,9 +295,9 @@ def main():
 			epoch_timer.update(time.time())
 			batch_cnt += 1
 			print(f'\rBatch:{batch_cnt:04d}/{len(train_loader):04d}  {epoch_timer}{epoch_loss_final}',
-			      f'{epoch_acc_gt}EMA ACC: {epoch_acc_gt.avg_ema:.2f}%, ',
-			      f'{epoch_loss_class_gt}',
+			      f'{epoch_acc_all}{epoch_acc_gt}{epoch_acc_fk}',
 			      sep='', end='     ')
+			torch.cuda.empty_cache()
 
 		sch_lmk2lip.step()
 		sch_wav2v.step()

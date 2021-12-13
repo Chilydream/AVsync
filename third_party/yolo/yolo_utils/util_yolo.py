@@ -82,8 +82,8 @@ def face_detect(model_yolo, img: torch.Tensor):
 		# pred是否按照置信度排序了？需不需要计算图片大小做一次筛选？
 		if pred[i] is None or len(pred[i])==0:
 			bbox_seq.append([0, 0, 255, 255])
-			# 如果找不到人脸，就选择将整张图片、0置信度作为bbox返回
-			print('\nERROR: no face found, appending whole image\n')
+			# # 如果找不到人脸，就选择将整张图片、0置信度作为bbox返回
+			# print('\nERROR: no face found, appending whole image\n')
 		else:
 			bbox_seq.append(pred[i][0, :4].cpu().detach().int().tolist())
 	return bbox_seq

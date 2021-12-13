@@ -28,7 +28,7 @@ def get_frame_and_wav(filename, seq_len=29, video_fps=25, resolution=0):
 		raise ValueError(f'要求视频时长不小于{seq_len/video_fps}秒，但是文件“{filename}”只有{whole_length}秒')
 
 	# start_time = np.random.randint(0, int(whole_length-1-(seq_len-1)/video_fps))
-	start_time = np.random.uniform(0, whole_length-1-(seq_len-1)/video_fps)
+	start_time = np.random.uniform(0, whole_length-2-(seq_len-1)/video_fps)
 	video_file_clip = video_file_clip.to_RGB()
 	image_list = []
 	video_fps = video_fps
@@ -42,8 +42,8 @@ def get_frame_and_wav(filename, seq_len=29, video_fps=25, resolution=0):
 	wav_array = audio_file_clip.to_soundarray(fps=16000)[:, 0]
 	wav_match = wav_array[int(start_time*16000):
 	                      int((start_time+(seq_len-1)/video_fps)*16000)]
-	wav_mismatch = wav_array[int((start_time+1)*16000):
-	                         int((start_time+1+(seq_len-1)/video_fps)*16000)]
+	wav_mismatch = wav_array[int((start_time+2)*16000):
+	                         int((start_time+2+(seq_len-1)/video_fps)*16000)]
 	wav_match = torch.FloatTensor(wav_match)
 	wav_mismatch = torch.FloatTensor(wav_mismatch)
 

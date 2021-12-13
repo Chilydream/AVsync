@@ -230,8 +230,6 @@ def main():
 			a_wid = a_wid.to(run_device)
 			a_lip = model_lmk2lip(a_lmk)
 			a_voice = model_wav2v(a_wav)
-			# todo: 这里是要用综合特征，还是按帧划分的特征？
-			# todo: 这里是否要让 a_lip和 a_voice特征相近？
 
 			new_idx = get_rand_idx(args.batch_size)
 			a_voice = a_voice[new_idx, :]
