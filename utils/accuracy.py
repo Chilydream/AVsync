@@ -26,12 +26,18 @@ def get_new_idx(batch_size):
 
 
 def get_rand_idx(batch_size):
-	a = np.random.randint(0, 2)
+	a = np.random.randint(0, 5)
 	new_idx = np.arange(0, batch_size)
+	tmp_idx = np.arange(0, batch_size)
 	if a == 0:
 		new_idx[:batch_size//2] = new_idx[batch_size//2:]
-	else:
+	elif a == 1:
 		new_idx[batch_size//2:] = new_idx[:batch_size//2]
+	elif a == 2:
+		new_idx[:batch_size//2] = tmp_idx[batch_size//2:]
+		new_idx[batch_size//2:] = tmp_idx[:batch_size//2]
+	elif a == 3:
+		np.random.shuffle(new_idx)
 	return new_idx
 
 
