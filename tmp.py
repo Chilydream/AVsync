@@ -43,24 +43,17 @@ from third_party.HRNet.utils_inference import get_model_by_name, get_batch_lmks
 
 args = TrainOptions('config/lab_sync.yaml').parse()
 
-a = torch.load('/home/tliu/fsx/dataset/data1204/2-p118.lmk')
+# a = torch.load('/home/tliu/fsx/dataset/data1204/2-p118.lmk')
+a = torch.load('/home/tliu/fsx/dataset/data1204/1-p74.lmk')
 # a = torch.load('/home/tliu/fsx/dataset/LRW/ABOUT/test/ABOUT_00002.lmk')
 avg_lmk = torch.mean(a, dim=(0, 1))
 std_lmk = torch.std(a, dim=(0, 1))
-# scale_lmk0 = torch.max(a[:, :, 0]) - torch.min(a[:, :, 0])
-# scale_lmk1 = torch.max(a[:, :, 1]) - torch.min(a[:, :, 1])
-print(avg_lmk)
-print(std_lmk)
+# print(avg_lmk)
+# print(std_lmk)
 
+print(a)
 a = (a-avg_lmk)/std_lmk
-# a[..., 0] /= scale_lmk0
-# a[..., 1] /= scale_lmk1
-# print(a)
 avg_lmk = torch.mean(a, dim=(0, 1))
-# scale_lmk0 = torch.max(a[:, :, 0]) - torch.min(a[:, :, 0])
-# scale_lmk1 = torch.max(a[:, :, 1]) - torch.min(a[:, :, 1])
 std_lmk = torch.std(a, dim=(0, 1))
-print(avg_lmk)
-print(std_lmk)
-# print(scale_lmk0)
-# print(scale_lmk1)
+# print(avg_lmk)
+# print(std_lmk)
