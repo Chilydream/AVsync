@@ -10,7 +10,7 @@ import sys
 
 from model.SyncModel import SyncModel
 from utils.accuracy import get_gt_label, get_rand_idx
-from utils.data_utils.LabLmk import LabLmkDataLoader
+from utils.data_utils.LabLmkWav import LabLmkWavDataLoader
 from utils.data_utils.LabRaw import LabDataLoader
 
 sys.path.append('/home/tliu/fsx/project/AVsync/third_party/yolo')
@@ -53,8 +53,6 @@ def evaluate(model_lmk2lip, model_wav2v, model_sync, criterion_class, loader, ar
 
 		label_pred_gt = model_sync(a_lip, a_voice_gt)
 		label_pred_fk = model_sync(a_lip, a_voice_fk)
-		print(f'\npred gt \n{label_pred_gt}\n')
-		print(f'\npred fk \n{label_pred_fk}\n')
 
 		# ======================计算唇部特征单词分类损失===========================
 		loss_class_gt = criterion_class(label_pred_gt, label_one)
@@ -66,7 +64,7 @@ def evaluate(model_lmk2lip, model_wav2v, model_sync, criterion_class, loader, ar
 
 		# ==========计量更新============================
 		val_acc_gt.update(correct_num_gt*100/len(label_one))
-		val_acc_gt.update(correct_num_fk*100/len(label_zero))
+		val_acc_fk.update(correct_num_fk*100/len(label_zero))
 		val_acc_all.update((val_acc_gt.avg+val_acc_fk.avg)*0.5)
 		val_loss_gt.update(loss_class_gt.item())
 		val_loss_fk.update(loss_class_fk.item())
@@ -77,7 +75,10 @@ def evaluate(model_lmk2lip, model_wav2v, model_sync, criterion_class, loader, ar
 		      sep='', end='     ')
 
 	val_log = {'val_loss_gt': val_loss_gt.avg,
+	           'val_loss_fk': val_loss_fk.avg,
 	           'val_loss_final': val_loss_final.avg,
+	           'val_acc_all': val_acc_all,
+	           'val_acc_fk': val_acc_fk.avg,
 	           'val_acc_gt': val_acc_gt.avg}
 	return val_log
 
@@ -158,15 +159,15 @@ def main():
 	loader_timer = Meter('Time', 'time', ':3.0f', end='')
 	print('%sStart loading dataset%s'%('='*20, '='*20))
 	loader_timer.set_start_time(time.time())
-	train_loader = LabLmkDataLoader(args.train_list, batch_size,
-	                                num_workers=args.num_workers,
-	                                seq_len=args.seq_len,
-	                                is_train=True, max_size=0)
+	train_loader = LabLmkWavDataLoader(args.train_list, batch_size,
+	                                   num_workers=args.num_workers,
+	                                   seq_len=args.seq_len,
+	                                   is_train=True, max_size=0)
 
-	valid_loader = LabLmkDataLoader(args.val_list, batch_size,
-	                                num_workers=args.num_workers,
-	                                seq_len=args.seq_len,
-	                                is_train=True, max_size=0)
+	valid_loader = LabLmkWavDataLoader(args.val_list, batch_size,
+	                                   num_workers=args.num_workers,
+	                                   seq_len=args.seq_len,
+	                                   is_train=True, max_size=0)
 	loader_timer.update(time.time())
 	print(f'Batch Num in Train Loader: {len(train_loader)}')
 	print(f'Finish loading dataset {loader_timer}')
@@ -191,10 +192,10 @@ def main():
 				         valid_loader, args)
 		else:
 			del valid_loader
-			test_loader = LabLmkDataLoader(args.test_list, batch_size,
-			                               num_workers=args.num_workers,
-			                               seq_len=args.seq_len,
-			                               is_train=True, max_size=0)
+			test_loader = LabLmkWavDataLoader(args.test_list, batch_size,
+			                                  num_workers=args.num_workers,
+			                                  seq_len=args.seq_len,
+			                                  is_train=True, max_size=0)
 			with torch.no_grad():
 				model_lmk2lip.eval()
 				model_wav2v.eval()
@@ -215,7 +216,7 @@ def main():
 		file_train_log = open(path_train_log, 'a')
 	elif args.mode.lower() in ['train']:
 		file_train_log = open(path_train_log, 'w')
-		if args.pretrain_model is not None:
+		if args.pretrain_model is not None and os.path.exists(args.pretrain_model):
 			model_ckpt = torch.load(args.pretrain_model)
 			model_lmk2lip.load_state_dict(model_ckpt['model_lmk2lip'])
 			model_wav2v.load_state_dict(model_ckpt['model_wav2v'])

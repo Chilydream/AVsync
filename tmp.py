@@ -24,7 +24,7 @@ import sys
 from model.Lmk2LipModel import Lmk2LipModel
 from model.VGGModel import VGGVoice
 from utils.data_utils.LRWImageLmkTriplet import LRWImageLmkTripletDataLoader
-from utils.data_utils.LabLmk import LabLmkDataLoader
+from utils.data_utils.LabLmkWav import LabLmkWavDataLoader
 from utils.data_utils.LabRaw import LabDataset, LabDataLoader
 from utils.extract_wav import extract_wav
 
@@ -43,10 +43,5 @@ from third_party.HRNet.utils_inference import get_model_by_name, get_batch_lmks
 
 args = TrainOptions('config/lab_sync.yaml').parse()
 
-train_loader = LabLmkDataLoader(args.train_list, args.batch_size,
-                                num_workers=args.num_workers,
-                                seq_len=args.seq_len,
-                                is_train=True, max_size=0)
-
-for data in train_loader:
-	continue
+a = torch.load('/home/tliu/fsx/dataset/lab50-new/silent/1pengzhe.lmk')
+print(a)
