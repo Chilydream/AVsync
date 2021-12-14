@@ -75,8 +75,8 @@ class LRWDataset(Dataset):
 		else:
 			a_img = torch.load(lmk_name)
 			avg_lmk = torch.mean(a_img, dim=(0, 1))
-			var_lmk = torch.var(a_img, dim=(0, 1))
-			a_img = (a_img-avg_lmk)/var_lmk
+			std_lmk = torch.std(a_img, dim=(0, 1))
+			a_img = (a_img-avg_lmk)/std_lmk
 			a_img = torch.flatten(a_img[:, 48:68, :], start_dim=1)
 		return a_wav, a_img, self.id2wid[item]
 

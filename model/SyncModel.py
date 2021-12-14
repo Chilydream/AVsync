@@ -55,13 +55,7 @@ class SilenceModel(nn.Module):
 
 		# x = (b, seq, lip_emb+voice_emb)
 		self.model = nn.Sequential(
-			nn.Linear(lip_emb, 512),
-			nn.BatchNorm1d(512),
-			nn.ReLU(True),
-			nn.Linear(512, 256),
-			nn.BatchNorm1d(256),
-			nn.ReLU(True),
-			nn.Linear(256, 128),
+			nn.Linear(lip_emb, 128),
 			nn.BatchNorm1d(128),
 			nn.ReLU(True),
 			nn.Linear(128, 64),

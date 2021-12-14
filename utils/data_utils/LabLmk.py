@@ -26,7 +26,7 @@ class LabLmkDataset(Dataset):
 			for idx, line in enumerate(fr.readlines()):
 				is_talk, filename = line.strip().split('\t')
 				self.file_list.append(filename)
-				self.talk_flag.append(is_talk!='0')
+				self.talk_flag.append(0 if is_talk=='0' else 1)
 		self.nfile = len(self.file_list)
 
 	def __getitem__(self, item):

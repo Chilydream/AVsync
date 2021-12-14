@@ -27,60 +27,43 @@ from third_party.yolo.yolo_utils.util_yolo import face_detect
 from third_party.HRNet.utils_inference import get_model_by_name, get_batch_lmks
 
 
-def evaluate(model_lmk2lip, model_sync, criterion_class, loader, args):
+def evaluate(model_lmk2lip, model_silence, criterion_class, loader, args):
 	run_device = torch.device("cuda:0" if args.gpu else "cpu")
 
-	val_loss_gt = Meter('Match Class Loss', 'avg', ':.4f')
-	val_loss_fk = Meter('Mismatch Class Loss', 'avg', ':.4f')
+	val_loss = Meter('Match Class Loss', 'avg', ':.4f')
 	val_loss_final = Meter('Final Loss', 'avg', ':.4f')
-	val_acc_gt = Meter('Match Class ACC', 'avg', ':.2f', '%, ')
-	val_acc_fk = Meter('Mismatch Class ACC', 'avg', ':.2f', '%, ')
-	val_acc_all = Meter('All Class ACC', 'avg', ':.2f', '%, ')
+	val_acc = Meter('Match Class ACC', 'avg', ':.2f', '%, ')
 	val_timer = Meter('Time', 'time', ':3.0f')
 	val_timer.set_start_time(time.time())
-	label_one = torch.ones(args.batch_size, dtype=torch.long, device=run_device)
-	label_zero = torch.zeros(args.batch_size, dtype=torch.long, device=run_device)
 
 	print('\tEvaluating Result:')
 	for data in loader:
-		a_lmk, a_wav_gt, a_wav_fk = data
+		a_lmk, label_gt = data
 		a_lmk = a_lmk.to(run_device)
-		a_wav_gt = a_wav_gt.to(run_device)
-		a_wav_fk = a_wav_fk.to(run_device)
+		label_gt = label_gt.to(run_device)
 
 		a_lip = model_lmk2lip(a_lmk)
-		a_voice_gt = model_wav2v(a_wav_gt)
-		a_voice_fk = model_wav2v(a_wav_fk)
-
-		label_pred_gt = model_sync(a_lip, a_voice_gt)
-		label_pred_fk = model_sync(a_lip, a_voice_fk)
+		label_pred = model_silence(a_lip)
 
 		# ======================计算唇部特征单词分类损失===========================
-		loss_class_gt = criterion_class(label_pred_gt, label_one)
-		loss_class_fk = criterion_class(label_pred_fk, label_zero)
-		correct_num_gt = torch.sum(torch.argmax(label_pred_gt, dim=1) == label_one).item()
-		correct_num_fk = torch.sum(torch.argmax(label_pred_fk, dim=1) == label_zero).item()
+		loss_class = criterion_class(label_pred, label_gt)
+		correct_num = torch.sum(torch.argmax(label_pred, dim=1) == label_gt).item()
 
-		loss_final = loss_class_gt+loss_class_fk
+		# ==========================反向传播===============================
+		loss_final = loss_class
 
 		# ==========计量更新============================
-		val_acc_gt.update(correct_num_gt*100/len(label_one))
-		val_acc_fk.update(correct_num_fk*100/len(label_zero))
-		val_acc_all.update((val_acc_gt.avg+val_acc_fk.avg)*0.5)
-		val_loss_gt.update(loss_class_gt.item())
-		val_loss_fk.update(loss_class_fk.item())
+		val_acc.update(correct_num*100/len(label_gt))
+		val_loss.update(loss_class.item())
 		val_loss_final.update(loss_final.item())
 		val_timer.update(time.time())
 		print(f'\r\tBatch:{val_timer.count:04d}/{len(loader):04d}  {val_timer}{val_loss_final}',
-		      f'{val_acc_all}{val_acc_gt}{val_acc_fk}',
+		      f'{val_acc}',
 		      sep='', end='     ')
 
-	val_log = {'val_loss_gt': val_loss_gt.avg,
-	           'val_loss_fk': val_loss_fk.avg,
+	val_log = {'val_loss': val_loss.avg,
 	           'val_loss_final': val_loss_final.avg,
-	           'val_acc_all': val_acc_all,
-	           'val_acc_fk': val_acc_fk.avg,
-	           'val_acc_gt': val_acc_gt.avg}
+	           'val_acc': val_acc.avg}
 	return val_log
 
 
@@ -108,8 +91,8 @@ def main():
 	print(f'{"="*20}Start loading model{"="*20}')
 
 	model_lmk2lip = Lmk2LipModel(lmk_emb=args.lmk_emb, lip_emb=args.lip_emb, stride=1)
-	model_sync = SilenceModel(lip_emb=args.lip_emb)
-	model_list = [model_lmk2lip, model_sync]
+	model_silence = SilenceModel(lip_emb=args.lip_emb)
+	model_list = [model_lmk2lip, model_silence]
 	for model_iter in model_list:
 		model_iter.to(run_device)
 		model_iter.train()
@@ -118,13 +101,13 @@ def main():
 	                                 transforms.Resize(args.face_resolution)])
 
 	optim_lmk2lip = optim.Adam(model_lmk2lip.parameters(), lr=args.lmk2lip_lr, betas=(0.9, 0.999))
-	optim_sync = optim.Adam(model_sync.parameters(), lr=args.sync_lr, betas=(0.9, 0.999))
+	optim_silence = optim.Adam(model_silence.parameters(), lr=args.sync_lr, betas=(0.9, 0.999))
 	criterion_class = nn.CrossEntropyLoss()
 	sch_lmk2lip = optim.lr_scheduler.ExponentialLR(optim_lmk2lip, gamma=args.lmk2lip_gamma)
-	sch_sync = optim.lr_scheduler.ExponentialLR(optim_sync, gamma=args.sync_gamma)
-	tosave_list = ['model_lmk2lip', 'model_sync',
-	               'optim_lmk2lip', 'optim_sync',
-	               'sch_lmk2lip', 'sch_sync']
+	sch_silence = optim.lr_scheduler.ExponentialLR(optim_silence, gamma=args.sync_gamma)
+	tosave_list = ['model_lmk2lip', 'model_silence',
+	               'optim_lmk2lip', 'optim_silence',
+	               'sch_lmk2lip', 'sch_silence']
 	if args.wandb:
 		for model_iter in model_list:
 			wandb.watch(model_iter)
@@ -173,9 +156,9 @@ def main():
 		if args.mode.lower() in ['valid', 'val', 'eval', 'evaluate']:
 			with torch.no_grad():
 				model_lmk2lip.eval()
-				model_sync.eval()
+				model_silence.eval()
 				criterion_class.eval()
-				evaluate(model_lmk2lip, model_sync,
+				evaluate(model_lmk2lip, model_silence,
 				         criterion_class,
 				         valid_loader, args)
 		else:
@@ -186,9 +169,9 @@ def main():
 			                               is_train=True, max_size=0)
 			with torch.no_grad():
 				model_lmk2lip.eval()
-				model_sync.eval()
+				model_silence.eval()
 				criterion_class.eval()
-				evaluate(model_lmk2lip, model_sync,
+				evaluate(model_lmk2lip, model_silence,
 				         criterion_class,
 				         test_loader, args)
 		print(f'\n\nFinish Evaluation\n\n')
@@ -206,8 +189,8 @@ def main():
 		if args.pretrain_model is not None and os.path.exists(args.pretrain_model):
 			model_ckpt = torch.load(args.pretrain_model)
 			model_lmk2lip.load_state_dict(model_ckpt['model_lmk2lip'])
-			if 'model_sync' in model_ckpt.keys():
-				model_sync.load_state_dict(model_ckpt['model_sync'])
+			if 'model_silence' in model_ckpt.keys():
+				model_silence.load_state_dict(model_ckpt['model_silence'])
 	else:
 		raise Exception(f"未定义训练模式{args.mode}")
 
@@ -229,12 +212,11 @@ def main():
 		for data in train_loader:
 			a_lmk, label_gt = data
 			a_lmk = a_lmk.to(run_device)
-			# a_lmk = (b, seq_len, 40)
-			# a_wav = (b, seq_len*16000)
+			label_gt = label_gt.to(run_device)
 
 			a_lip = model_lmk2lip(a_lmk)
 
-			label_pred = model_sync(a_lip)
+			label_pred = model_silence(a_lip)
 
 			# ======================计算唇部特征单词分类损失===========================
 			loss_class = criterion_class(label_pred, label_gt)
@@ -242,11 +224,11 @@ def main():
 
 			# ==========================反向传播===============================
 			optim_lmk2lip.zero_grad()
-			optim_sync.zero_grad()
+			optim_silence.zero_grad()
 			loss_final = loss_class
 			loss_final.backward()
 			optim_lmk2lip.step()
-			optim_sync.step()
+			optim_silence.step()
 
 			# ==========计量更新============================
 			epoch_acc.update(correct_num*100/len(label_gt))
@@ -260,10 +242,10 @@ def main():
 			torch.cuda.empty_cache()
 
 		sch_lmk2lip.step()
-		sch_sync.step()
+		sch_silence.step()
 		print('')
 		print(f'Current Model M2V Learning Rate is {sch_lmk2lip.get_last_lr()}')
-		print(f'Current Model Sync Learning Rate is {sch_sync.get_last_lr()}')
+		print(f'Current Model Sync Learning Rate is {sch_silence.get_last_lr()}')
 		print('Epoch:', epoch, epoch_loss_final, epoch_acc,
 		      file=file_train_log)
 		log_dict = {'epoch': epoch,
@@ -290,15 +272,15 @@ def main():
 			with torch.no_grad():
 				# torch.no_grad()不能停止drop_out和 batch_norm，所以还是需要eval
 				model_lmk2lip.eval()
-				model_sync.eval()
+				model_silence.eval()
 				criterion_class.eval()
 				# try:
-				log_dict.update(evaluate(model_lmk2lip, model_sync,
+				log_dict.update(evaluate(model_lmk2lip, model_silence,
 				                         criterion_class, valid_loader, args))
 				# except:
 				# 	print('Evaluating Error')
 				model_lmk2lip.train()
-				model_sync.train()
+				model_silence.train()
 				criterion_class.train()
 
 		if args.wandb:
