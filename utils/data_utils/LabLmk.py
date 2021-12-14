@@ -37,8 +37,8 @@ class LabLmkDataset(Dataset):
 		start_pos = np.random.randint(0, min_len-30-self.seq_len)
 
 		avg_lmk = torch.mean(all_lmk, dim=(0, 1))
-		var_lmk = torch.var(all_lmk, dim=(0, 1))
-		all_lmk = (all_lmk-avg_lmk)/var_lmk
+		std_lmk = torch.std(all_lmk, dim=(0, 1))
+		all_lmk = (all_lmk-avg_lmk)/std_lmk
 		lmk_tensor = all_lmk[start_pos:start_pos+self.seq_len]
 		lmk_tensor = torch.flatten(lmk_tensor[:, 48:68, :], start_dim=1)
 
