@@ -89,7 +89,8 @@ def main():
 
 	# ============================WandB日志=============================
 	if args.wandb:
-		wandb.init(project=args.project_name, config=args)
+		wandb.init(project=args.project_name, config=args,
+		           name=args.exp_num, group=args.exp_num)
 
 	# ============================模型载入===============================
 	print('%sStart loading model%s'%('='*20, '='*20))
