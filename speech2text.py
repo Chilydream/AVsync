@@ -50,7 +50,7 @@ def evaluate(model_wav2v, model_s2t, criterion, loader, args):
 		# ===========================更新度量==============================
 		val_loss_class.update(loss_class.item())
 		val_loss_final.update(loss_final.item())
-		val_acc_class.update(acc_avmatch*100/len(label_gt))
+		val_acc_class.update(acc_avmatch*100/label_gt.shape[0])
 		val_timer.update(time.time())
 		print(f'\r\t{val_timer}{val_loss_final}{val_acc_class}',
 		      end='     ')
@@ -185,7 +185,7 @@ def main():
 			optim_v2t.step()
 
 			# ==========计量更新============================
-			epoch_acc_class.update(batch_acc_class*100/len(label_gt))
+			epoch_acc_class.update(batch_acc_class*100/label_gt.shape[0])
 			epoch_loss_class.update(loss_class.item())
 			epoch_loss_final.update(batch_loss_final.item())
 			epoch_timer.update(time.time())

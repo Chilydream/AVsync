@@ -123,21 +123,21 @@ class VGGLip(nn.Module):
 		super(VGGLip, self).__init__()
 		self.vgg = nn.Sequential(
 			# (4, 3, 29, 256, 256)
-			nn.Conv3d(3, 96, kernel_size=(5, 7, 7), stride=(stride, 2, 2), padding=0),
-			# (4, 96, 25, 125, 125)
+			nn.Conv3d(3, 96, kernel_size=(1, 7, 7), stride=(1, 2, 2), padding=0),
+			# (4, 96, 29, 125, 125)
 			nn.BatchNorm3d(96),
 			nn.ReLU(inplace=True),
 			nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2)),
-			# (4, 96, 25, 62, 62)
+			# (4, 96, 29, 62, 62)
 
 			nn.Conv3d(96, 256, kernel_size=(1, 5, 5), stride=(1, 2, 2), padding=(0, 1, 1)),
-			# (4, 256, 25, 30, 30)
+			# (4, 256, 29, 30, 30)
 			nn.BatchNorm3d(256),
 			nn.ReLU(inplace=True),
 			nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1)),
-			# (4, 256, 25, 15, 15)
+			# (4, 256, 29, 15, 15)
 
-			nn.Conv3d(256, 256, kernel_size=(1, 3, 3), padding=(0, 1, 1)),
+			nn.Conv3d(256, 256, kernel_size=(5, 3, 3), stride=(stride, 1, 1), padding=(0, 1, 1)),
 			# (4, 256, 25, 15, 15)
 			nn.BatchNorm3d(256),
 			nn.ReLU(inplace=True),
@@ -168,17 +168,9 @@ class VGGLip(nn.Module):
 			nn.Conv1d(512, n_out, kernel_size=(1,))
 		)
 
-		self.mix = nn.Sequential(
-			nn.Conv1d(n_out, n_out, kernel_size=(3,), stride=(2,)),
-			nn.BatchNorm1d(n_out),
-			nn.ReLU(),
-			nn.Conv1d(n_out, n_out, kernel_size=(3,), stride=(2,)),
-			nn.BatchNorm1d(n_out),
-			nn.ReLU(),
-			nn.Conv1d(n_out, n_out, kernel_size=(3,), stride=(2,)),
-			nn.BatchNorm1d(n_out),
-			nn.AdaptiveAvgPool1d(1),
-		)
+		self.frame2word = nn.LSTM(input_size=n_out, hidden_size=n_out, num_layers=1,
+		                          batch_first=True, bidirectional=False)
+
 
 	def forward(self, x):
 		# x = (5, 3, 29, 256, 256)
@@ -187,5 +179,6 @@ class VGGLip(nn.Module):
 		# mid = (4, 512, 25)
 		emb_seq = self.fc(mid)
 		# emb_seq = (5, nOut, 25)
-		emb_mix = self.mix(emb_seq).squeeze()
-		return emb_mix
+		emb_word = self.frame2word(emb_seq)
+		emb_word.squeeze_(0)
+		return emb_word

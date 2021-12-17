@@ -95,7 +95,6 @@ def main():
 
 	start_epoch = 0
 	batch_size = args.batch_size
-	batch_first = args.batch_first
 
 	cur_exp_path = os.path.join(args.exp_dir, args.exp_num)
 	cache_dir = os.path.join(cur_exp_path, 'cache')

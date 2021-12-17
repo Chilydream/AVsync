@@ -7,7 +7,7 @@ save_step: 1
 valid_step: 0
 
 epoch: 1000
-batch_size: 6
+batch_size: 32
 num_workers: 24
 resolution: 256
 img2lip_lr: 0.00005
@@ -16,7 +16,6 @@ lip2t_lr: 0.00005
 lip2t_gamma: 0.99
 gpu: True
 wandb: False
-batch_first: True
 ddp_flag: False
 
 class_lambda: 5.0

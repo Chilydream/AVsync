@@ -81,7 +81,6 @@ def main():
 	args = TrainOptions('config/lip2text.yaml').parse()
 	start_epoch = 0
 	batch_size = args.batch_size
-	batch_first = args.batch_first
 	torch.backends.cudnn.benchmark = args.gpu
 	run_device = torch.device("cuda" if args.gpu else "cpu")
 
@@ -207,7 +206,6 @@ def main():
 		epoch_timer.set_start_time(time.time())
 		for data in train_loader:
 			img_data, wid_gt = data
-			# img_data.transpose_(2, 1)
 			img_data = img_data.to(run_device)
 			wid_gt = wid_gt.to(run_device)
 
