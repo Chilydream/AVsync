@@ -4,50 +4,45 @@ import torchaudio
 import torchsnooper
 import torchvision
 
-from model.FaceModel import FaceModel
 
-
+# @torchsnooper.snoop()
 class VGGVoice(nn.Module):
 	def __init__(self, n_out=512, stride=1, n_mfcc=40):
 		super(VGGVoice, self).__init__()
 		self.vgg = nn.Sequential(
-			# (b, 1, 40, 127)
-			nn.Conv2d(1, 96, kernel_size=(5, 7), stride=(1, 1), padding=(2, 2)),
-			# (b, 96, 40, 125)
-			nn.BatchNorm2d(96),
+			# (b, 1, 40, 毫秒数)
+			nn.Conv2d(1, 128, kernel_size=(5, 5), stride=(1, 4), padding=(2, 2)),
+			# (b, 128, 40, fps等于25下的图片帧数)
+			nn.BatchNorm2d(128),
 			nn.ReLU(inplace=True),
-			nn.MaxPool2d(kernel_size=(1, 3), stride=(1, 2)),
-			# (b, 96, 40, 62)
+			# 如果第一个conv2d改成 k=3的核，这里可以考虑用一个 k=3，s=4的 maxpool
 
-			nn.Conv2d(96, 256, kernel_size=(5, 5), stride=(2, 1), padding=(1, 1)),
-			# (b, 256, 19, 60)
+			nn.Conv2d(128, 256, kernel_size=(5, 1), stride=(2, stride), padding=(1, 0)),
+			# (b, 256, 19, frames/lazy_stride)
 			nn.BatchNorm2d(256),
 			nn.ReLU(inplace=True),
-			nn.MaxPool2d(kernel_size=(3, 3), stride=(2, 1)),
-			# (b, 256, 9, 58)
+			nn.MaxPool2d(kernel_size=(3, 1), stride=(2, 1)),
+			# (b, 256, 9, frames_lazy)
 
-			nn.Conv2d(256, 384, kernel_size=(3, 3), padding=(1, 1)),
-			# (b, 256, 9, 58)
+			nn.Conv2d(256, 384, kernel_size=(3, 1), padding=(1, 0)),
+			# (b, 256, 9, frames_lazy)
 			nn.BatchNorm2d(384),
 			nn.ReLU(inplace=True),
 
-			nn.Conv2d(384, 256, kernel_size=(3, 3), padding=(1, 1)),
-			# (b, 256, 9, 58)
+			nn.Conv2d(384, 256, kernel_size=(3, 1), padding=(1, 0)),
+			# (b, 256, 9, frames_lazy)
 			nn.BatchNorm2d(256),
 			nn.ReLU(inplace=True),
 
-			nn.Conv2d(256, 256, kernel_size=(3, 3), padding=(1, 1)),
-			# (b, 256, 9, 58)
+			nn.Conv2d(256, 256, kernel_size=(3, 1), padding=(1, 0)),
+			# (b, 256, 9, frames_lazy)
 			nn.BatchNorm2d(256),
 			nn.ReLU(inplace=True),
-			nn.MaxPool2d(kernel_size=(3, 3), stride=(2, 2)),
-			# (b, 256, 4, 28) for hop_length=160
-			# (b, 256, 4, 25) for hop_length=175
+			nn.MaxPool2d(kernel_size=(3, 1), stride=(2, 1)),
+			# (b, 256, 4, frames_lazy)
 
-			nn.Conv2d(256, 512, kernel_size=(4, 1), padding=(0, 0), stride=(1, stride)),
-			# (b, 512, 1, 25) for hop_length=175
-			nn.BatchNorm2d(512),
-			nn.ReLU(inplace=True),
+			nn.Conv2d(256, 512, kernel_size=(4, 1), padding=(0, 0), stride=(1, 1)),
+			# (b, 512, 1, frames_lazy)
 		)
 
 		self.fc = nn.Sequential(
@@ -57,39 +52,34 @@ class VGGVoice(nn.Module):
 			nn.Conv1d(512, n_out, kernel_size=(1,)),
 		)
 
-		self.mix = nn.Sequential(
-			nn.Conv1d(n_out, n_out, kernel_size=(3,), stride=(2,)),
-			nn.BatchNorm1d(n_out),
-			nn.ReLU(),
-			nn.Conv1d(n_out, n_out, kernel_size=(3,), stride=(2,)),
-			nn.BatchNorm1d(n_out),
-			nn.ReLU(),
-			nn.Conv1d(n_out, n_out, kernel_size=(3,), stride=(2,)),
-			nn.BatchNorm1d(n_out),
-			nn.AdaptiveAvgPool1d(1),
-		)
+		self.frame2word = nn.LSTM(input_size=n_out, hidden_size=n_out, num_layers=1,
+		                          batch_first=True, bidirectional=False)
 
 		self.instancenorm = nn.InstanceNorm1d(40)
 		self.torchfb = torchaudio.transforms.MelSpectrogram(sample_rate=16000, n_fft=512, win_length=400,
-		                                                    hop_length=175, f_min=0.0, f_max=8000,
+		                                                    hop_length=160, f_min=0.0, f_max=8000,
 		                                                    pad=0, n_mels=n_mfcc)
 
 	def forward(self, x):
 		x = self.torchfb(x)+1e-6
-		# x = (batch, n_mels=40, 129)
+		# x = (batch, n_mels=40, 122)
 		x = self.instancenorm(x.log())
-		x = x[:, :, 1:-1].detach()
-		# x = (b, n_mels=40, 127)
+		# x = (b, n_mels=40, 122)
+		x = x.detach()
 
 		mid = self.vgg(x.unsqueeze(1))
-		mid = mid.view((mid.size()[0], mid.size()[1], -1))
-		# mid = (b, 512, 25) for hop_length=175
+		# mid = (b, 512, 1, frames_lazy)
+		# mid = mid.view((mid.size()[0], mid.size()[1], -1))
+		mid.squeeze_(2)
+		# mid = (b, 512, frames_lazy)
 
 		emb_seq = self.fc(mid)
-		# emb_seq = (b, nOut, 25) for hop_length=175
+		# emb_seq = (b, nOut, 25)
+		emb_seq.transpose_(2, 1)
 
-		emb_mix = self.mix(emb_seq).squeeze()
-		return emb_mix
+		_, (emb_word, _) = self.frame2word(emb_seq)
+		emb_word.squeeze_(0)
+		return emb_word
 
 
 class ResLip(nn.Module):

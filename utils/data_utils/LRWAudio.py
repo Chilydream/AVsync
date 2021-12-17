@@ -15,7 +15,8 @@ from utils.data_utils.LRWRaw import LRWDataset
 
 class LRWAudioDataset(LRWDataset):
 	def __init__(self, dataset_file, n_mfcc, max_size):
-		super(LRWAudioDataset, self).__init__(dataset_file, n_mfcc, 0, max_size)
+		super(LRWAudioDataset, self).__init__(dataset_file, n_mfcc, seq_len=0, resolution=-1,
+		                                      max_size=max_size)
 
 	def __getitem__(self, item):
 		mp4_name = self.file_list[item]

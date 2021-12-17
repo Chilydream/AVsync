@@ -1,4 +1,4 @@
-project_name: "Speech to Text"
+project_name: "Speech to Text 2"
 mode: "train"
 pretrain_model: ~
 exp_dir: "exp_s2t"
@@ -7,23 +7,22 @@ save_step: 1
 valid_step: 1
 
 epoch: 1000
-batch_size: 80
-num_workers: 32
-resolution: 256
+batch_size: 256
+num_workers: 16
+resolution: -1
 wav2v_lr: 0.00005
 wav2v_gamma: 0.99
 v2t_lr: 0.00005
 v2t_gamma: 0.99
 gpu: True
 wandb: True
-batch_first: True
 
 class_lambda: 1.0
 triplet_lambda: 1.0
 
-train_list: "metadata/train.txt"
-val_list: "metadata/val.txt"
-test_list: "metadata/test.txt"
+train_list: "metadata/LRW_train_3090.txt"
+val_list: "metadata/LRW_val_3090.txt"
+test_list: "metadata/LRW_test_3090.txt"
 max_size: 0
 voice_emb: 256
 n_mfcc: 40

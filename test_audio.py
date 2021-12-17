@@ -43,6 +43,17 @@ from third_party.HRNet.utils_inference import get_model_by_name, get_batch_lmks
 
 args = TrainOptions('config/speech2text.yaml').parse()
 
-filename = 'test/ABOUT_00001.wav'
-y, sr = librosa.load(filename, sr=16000)
-print(y, sr)
+model_wav2v = VGGVoice()
+torchfb = torchaudio.transforms.MelSpectrogram(sample_rate=16000, n_fft=512, win_length=400,
+                                               hop_length=160, f_min=0.0, f_max=8000,
+                                               pad=0, n_mels=40)
+
+# mp4name = 'test/ABOUT_00001.mp4'
+mp4name = 'test/avspeech/elcpPYx4X2c_150.000000-156.280000.mp4'
+# mp4name = 'test/avspeech/es-nUdEm8sQ_120.019000-125.392000.mp4'
+extract_wav(mp4name)
+wavname = mp4name[:-3]+'wav'
+y, sr = librosa.load(wavname, sr=16000)
+print(y.shape, sr)
+y = torch.FloatTensor(y).unsqueeze(0)
+a_voice = model_wav2v(y)
