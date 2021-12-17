@@ -78,7 +78,6 @@ def main():
 	args = TrainOptions('config/speech2text.yaml').parse()
 	start_epoch = 0
 	batch_size = args.batch_size
-	batch_first = args.batch_first
 	torch.backends.cudnn.benchmark = args.gpu
 	run_device = torch.device("cuda:0" if args.gpu else "cpu")
 
