@@ -41,6 +41,8 @@ from third_party.yolo.yolo_models.yolo import Model as yolo_model
 from third_party.yolo.yolo_utils.util_yolo import face_detect
 from third_party.HRNet.utils_inference import get_model_by_name, get_batch_lmks
 
-args = TrainOptions('config/lab_sync.yaml').parse()
+args = TrainOptions('config/speech2text.yaml').parse()
 
-a = get_wav('/home/tliu/fsx/dataset/LRW')
+filename = 'test/ABOUT_00001.wav'
+y, sr = librosa.load(filename, sr=16000)
+print(y, sr)
