@@ -17,8 +17,8 @@ class VGGVoice(nn.Module):
 			nn.ReLU(inplace=True),
 			# 如果第一个conv2d改成 k=3的核，这里可以考虑用一个 k=3，s=4的 maxpool
 
-			nn.Conv2d(128, 256, kernel_size=(5, 1), stride=(2, stride), padding=(1, 0)),
-			# (b, 256, 19, frames/lazy_stride)
+			nn.Conv2d(128, 256, kernel_size=(5, 5), stride=(2, stride), padding=(1, 0)),
+			# (b, 256, 19, 29-4) for stride=1
 			nn.BatchNorm2d(256),
 			nn.ReLU(inplace=True),
 			nn.MaxPool2d(kernel_size=(3, 1), stride=(2, 1)),
