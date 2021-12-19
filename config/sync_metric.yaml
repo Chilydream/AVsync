@@ -26,7 +26,7 @@ train_list: "metadata/LRW_train_3090.txt"
 val_list: "metadata/LRW_val_3090.txt"
 test_list: "metadata/LRW_test_3090.txt"
 resolution: 256
-img_resolution: 256
+img_resolution: 128
 face_resolution: 128
 max_size: 0
 lip_emb: 256
@@ -36,3 +36,4 @@ n_mfcc: 0
 seq_len: 29
 triplet_margin: 1.0
 margin: 1.0
+stride: 2

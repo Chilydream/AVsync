@@ -104,8 +104,8 @@ def main():
 	model_yolo = model_yolo.to(run_device)
 
 	# model_lmk2lip = Lmk2LipModel(lmk_emb=args.lmk_emb, lip_emb=args.lip_emb, stride=1)
-	model_img2lip = VGG5_lip(n_out=args.lip_emb)
-	model_wav2v = VGG6_speech(n_out=args.voice_emb)
+	model_img2lip = VGG5_lip(n_out=args.lip_emb, stride=args.stride)
+	model_wav2v = VGG6_speech(n_out=args.voice_emb, stride=args.stride)
 	model_sync = SyncModel(lip_emb=args.lip_emb, voice_emb=args.voice_emb)
 	model_list = [model_img2lip, model_wav2v, model_sync]
 	for model_iter in model_list:
@@ -150,14 +150,14 @@ def main():
 	train_loader = LRWDataLoader(args.train_list, batch_size,
 	                             num_workers=args.num_workers,
 	                             n_mfcc=args.n_mfcc,
-	                             resolution=args.resolution,
+	                             resolution=args.img_resolution,
 	                             seq_len=args.seq_len,
 	                             is_train=True, max_size=0)
 
 	valid_loader = LRWDataLoader(args.val_list, batch_size,
 	                             num_workers=args.num_workers,
 	                             n_mfcc=args.n_mfcc,
-	                             resolution=args.resolution,
+	                             resolution=args.img_resolution,
 	                             seq_len=args.seq_len,
 	                             is_train=True, max_size=0)
 	loader_timer.update(time.time())
@@ -235,7 +235,8 @@ def main():
 			a_wav = a_wav.to(run_device)
 			a_img = a_img.to(run_device)
 			a_wid = a_wid.to(run_device)
-			a_face = crop_face(model_yolo, a_img, args)
+			# a_face = crop_face(model_yolo, a_img, args)
+			a_face = a_img
 			a_face.transpose_(2, 1)
 			a_lip = model_img2lip(a_face)
 			a_voice = model_wav2v(a_wav)
