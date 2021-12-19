@@ -13,7 +13,7 @@ import sys
 
 from model.Lip2TModel import Lip2T_fc_Model
 from model.Voice2TModel import Voice2T_fc_Model
-from model.VGGModel import VGGVoice, ResLip, VGGLip
+from model.VGGModel import VGG6_speech, ResLip, VGG6_lip
 from utils.data_utils.LRWImageTriplet import LRWImageTripletDataLoader
 from utils.tensor_utils import PadSquare
 
@@ -97,7 +97,7 @@ def main():
 	# ============================模型载入===============================
 	print('%sStart loading model%s'%('='*20, '='*20))
 	# model_img2lip = ResLip(n_out=args.lip_emb)
-	model_img2lip = VGGLip(n_out=args.lip_emb)
+	model_img2lip = VGG6_lip(n_out=args.lip_emb)
 	model_lip2t = Lip2T_fc_Model(args.lip_emb, n_class=500)
 	model_list = [model_img2lip, model_lip2t]
 	for model_iter in model_list:

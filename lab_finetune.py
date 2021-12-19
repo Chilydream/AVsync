@@ -17,7 +17,7 @@ sys.path.append('/home/tliu/fsx/project/AVsync/third_party/yolo')
 sys.path.append('/home/tliu/fsx/project/AVsync/third_party/HRNet')
 
 from model.Lmk2LipModel import Lmk2LipModel
-from model.VGGModel import VGGVoice
+from model.VGGModel import VGG6_speech
 from utils.tensor_utils import PadSquare
 from utils.GetConsoleArgs import TrainOptions
 from utils.Meter import Meter
@@ -112,7 +112,7 @@ def main():
 	model_hrnet.to(run_device)
 
 	model_lmk2lip = Lmk2LipModel(lmk_emb=args.lmk_emb, lip_emb=args.lip_emb, stride=1)
-	model_wav2v = VGGVoice(n_out=args.voice_emb)
+	model_wav2v = VGG6_speech(n_out=args.voice_emb)
 	model_sync = SyncModel(lip_emb=args.lip_emb, voice_emb=args.voice_emb)
 	model_list = [model_lmk2lip, model_wav2v, model_sync]
 	for model_iter in model_list:

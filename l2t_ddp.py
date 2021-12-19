@@ -14,7 +14,7 @@ import sys
 
 from model.Lip2TModel import Lip2T_fc_Model
 from model.Voice2TModel import Voice2T_fc_Model
-from model.VGGModel import VGGVoice, ResLip
+from model.VGGModel import VGG6_speech, ResLip
 from utils.data_utils.LRWImageTriplet import LRWImageTripletDataLoader
 from utils.tensor_utils import PadSquare
 

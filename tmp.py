@@ -22,7 +22,7 @@ from moviepy.editor import VideoFileClip
 import sys
 
 from model.Lmk2LipModel import Lmk2LipModel
-from model.VGGModel import VGGVoice
+from model.VGGModel import VGG6_speech
 from utils.data_utils.LRWImageLmkTriplet import LRWImageLmkTripletDataLoader
 from utils.data_utils.LabLmkWav import LabLmkWavDataLoader
 from utils.data_utils.LabRaw import LabDataset, LabDataLoader

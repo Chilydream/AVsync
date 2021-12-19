@@ -12,7 +12,7 @@ sys.path.append('/home/tliu/fsx/project/AVsync/third_party/HRNet')
 
 from utils.GetDataFromFile import get_frame_tensor
 from model.Lmk2LipModel import Lmk2LipModel
-from model.VGGModel import VGGVoice
+from model.VGGModel import VGG6_speech
 from utils.tensor_utils import PadSquare
 from utils.GetConsoleArgs import TrainOptions
 from third_party.yolo.yolo_models.yolo import Model as yolo_model

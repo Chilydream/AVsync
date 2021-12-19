@@ -13,7 +13,7 @@ import wandb
 import sys
 
 from model.Voice2TModel import Voice2T_fc_Model
-from model.VGGModel import VGGVoice
+from model.VGGModel import VGG6_speech
 from utils.tensor_utils import PadSquare
 
 sys.path.append('/root/ChineseDataset/AVsync/third_party/yolo')
@@ -82,7 +82,7 @@ def main():
 
 	# ============================模型载入===============================
 	print('%sStart loading model%s'%('='*20, '='*20))
-	model_wav2v = VGGVoice(n_out=args.voice_emb, n_mfcc=args.n_mfcc)
+	model_wav2v = VGG6_speech(n_out=args.voice_emb, n_mfcc=args.n_mfcc)
 	model_v2t = Voice2T_fc_Model(args.voice_emb, n_class=500)
 	model_list = [model_wav2v, model_v2t]
 	for model_iter in model_list:

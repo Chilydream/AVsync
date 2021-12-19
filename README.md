@@ -35,12 +35,12 @@ lmk_list = get_batch_lmks(model_hrnet, face_batch)
 ```python
 import torch
 from model.Lmk2LipModel import Lmk2LipModel
-from model.VGGModel import VGGVoice
+from model.VGGModel import VGG6_speech
 from model.SyncModel import SyncModel
 
 
 model_lmk2lip = Lmk2LipModel(lmk_emb=40, lip_emb=256, stride=1)
-model_wav2v = VGGVoice(n_out=256)
+model_wav2v = VGG6_speech(n_out=256)
 model_sync = SyncModel(lip_emb=256, voice_emb=256)
 
 model_ckpt = torch.load('pretrain_model/model_LRW.pth')

@@ -22,7 +22,7 @@ from moviepy.editor import VideoFileClip
 import sys
 
 from model.Lmk2LipModel import Lmk2LipModel
-from model.VGGModel import VGGVoice
+from model.VGGModel import VGG6_speech
 from utils.data_utils.LRWImageLmkTriplet import LRWImageLmkTripletDataLoader
 from utils.data_utils.LabLmkWav import LabLmkWavDataLoader
 from utils.data_utils.LabRaw import LabDataset, LabDataLoader
@@ -43,7 +43,7 @@ from third_party.HRNet.utils_inference import get_model_by_name, get_batch_lmks
 
 args = TrainOptions('config/speech2text.yaml').parse()
 
-model_wav2v = VGGVoice()
+model_wav2v = VGG6_speech()
 torchfb = torchaudio.transforms.MelSpectrogram(sample_rate=16000, n_fft=512, win_length=400,
                                                hop_length=160, f_min=0.0, f_max=8000,
                                                pad=0, n_mels=40)
