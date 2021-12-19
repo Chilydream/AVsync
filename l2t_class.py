@@ -97,8 +97,8 @@ def main():
 
 	# ============================模型载入===============================
 	print('%sStart loading model%s'%('='*20, '='*20))
-	model_img2lip = ResLip(n_out=args.lip_emb)
-	# model_img2lip = VGGLip(n_out=args.lip_emb)
+	# model_img2lip = ResLip(n_out=args.lip_emb)
+	model_img2lip = VGGLip(n_out=args.lip_emb)
 	model_lip2t = Lip2T_fc_Model(args.lip_emb, n_class=500)
 	model_list = [model_img2lip, model_lip2t]
 	for model_iter in model_list:
@@ -169,7 +169,7 @@ def main():
 			del valid_loader
 			test_loader = LRWImageTripletDataLoader(args.test_list, batch_size,
 			                                        num_workers=args.num_workers,
-			                                        seq_len=0, resolution=0,
+			                                        seq_len=0, resolution=args.resolution,
 			                                        is_train=False, max_size=0)
 			with torch.no_grad():
 				model_img2lip.eval()
