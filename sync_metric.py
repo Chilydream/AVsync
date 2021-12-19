@@ -12,11 +12,11 @@ import wandb
 from pytorch_metric_learning import losses
 import sys
 
-from utils.crop_face import crop_face
 
 sys.path.append('/home/tliu/fsx/project/AVsync/third_party/yolo')
 sys.path.append('/home/tliu/fsx/project/AVsync/third_party/HRNet')
 
+from utils.crop_face import crop_face
 from utils.accuracy import get_gt_label, get_rand_idx
 from utils.data_utils.LRWRaw import LRWDataLoader
 from model.Lip2TModel import Lip2T_fc_Model
@@ -101,6 +101,7 @@ def main():
 	print('%sStart loading model%s'%('='*20, '='*20))
 	model_yolo = yolo_model(cfg='config/yolov5s.yaml').float().fuse().eval()
 	model_yolo.load_state_dict(torch.load('pretrain_model/raw_yolov5s.pt'))
+	model_yolo = model_yolo.to(run_device)
 
 	# model_lmk2lip = Lmk2LipModel(lmk_emb=args.lmk_emb, lip_emb=args.lip_emb, stride=1)
 	model_img2lip = VGG5_lip(n_out=args.lip_emb)
@@ -235,6 +236,7 @@ def main():
 			a_img = a_img.to(run_device)
 			a_wid = a_wid.to(run_device)
 			a_face = crop_face(model_yolo, a_img, args)
+			a_face.transpose_(2, 1)
 			a_lip = model_img2lip(a_face)
 			a_voice = model_wav2v(a_wav)
 

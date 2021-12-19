@@ -25,4 +25,5 @@ def crop_face(model_yolo, img_batch, args):
 			face_seq = torch.stack(face_list).to(run_device)
 			face_seq_list.append(face_seq)
 		face_batch = torch.stack(face_seq_list).to(run_device)
+		# (b, seq, 3, res, res)
 		return face_batch

@@ -184,7 +184,8 @@ class VGG6_lip(nn.Module):
 
 class VGG5_lip(nn.Module):
 	def __init__(self, n_out=256, stride=1):
-		self.model = nn.Sequential(
+		super(VGG5_lip, self).__init__()
+		self.vgg = nn.Sequential(
 			# (4, 3, 29, 256, 256)
 			nn.Conv3d(3, 96, kernel_size=(5, 5, 5), stride=(1, 1, 1), padding=(0, 2, 2)),
 			# (4, 96, 25, 256, 256)
@@ -228,8 +229,6 @@ class VGG5_lip(nn.Module):
 		self.frame2word = nn.LSTM(input_size=n_out, hidden_size=n_out, num_layers=1,
 		                          batch_first=True, bidirectional=False)
 
-		super(VGG5_lip, self).__init__()
-
 	def forward(self, x):
 		# x = (4, 3, 29, 256, 256)
 		mid = self.vgg(x)
@@ -237,6 +236,7 @@ class VGG5_lip(nn.Module):
 		# mid = (4, 512, 25)
 		emb_seq = self.fc(mid)
 		# emb_seq = (5, nOut, 25)
-		emb_word = self.frame2word(emb_seq)
+		emb_seq.transpose_(2, 1)
+		_, (emb_word, _) = self.frame2word(emb_seq)
 		emb_word.squeeze_(0)
 		return emb_word
