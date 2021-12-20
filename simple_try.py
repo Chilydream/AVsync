@@ -1,62 +1,42 @@
-import glob
-import os
-import multiprocessing
-import sys
+import multiprocessing as mp
 import torch
-import tqdm
-from moviepy.editor import VideoFileClip
-import torchvision.transforms as transforms
+import sys
 
-sys.path.append('/home/tliu/fsx/project/AVsync/third_party/yolo')
-sys.path.append('/home/tliu/fsx/project/AVsync/third_party/HRNet')
-
+sys.path.append('./third_party/yolo')
 from utils.GetDataFromFile import get_frame_tensor
-from model.Lmk2LipModel import Lmk2LipModel
-from model.VGGModel import VGG6_speech
-from utils.tensor_utils import PadSquare
-from utils.GetConsoleArgs import TrainOptions
+from utils.crop_face import crop_face_seq
 from third_party.yolo.yolo_models.yolo import Model as yolo_model
-from third_party.yolo.yolo_utils.util_yolo import face_detect
-from third_party.HRNet.utils_inference import get_model_by_name, get_batch_lmks
 
-args = TrainOptions('config/lab_sync.yaml').parse()
-run_device = torch.device('cuda:0')
 
-pad_resize = transforms.Compose([PadSquare(),
-                                 transforms.Resize(args.face_resolution)])
+def func1(idx):
+	model_yolo = yolo_model(cfg='config/yolov5s.yaml').float().fuse().eval()
+	model_yolo.load_state_dict(torch.load('pretrain_model/raw_yolov5s.pt'))
+	run_device = torch.device('cuda:0')
+	model_yolo = model_yolo.to(run_device)
+	with open('metadata/LRW_train_3090.txt', 'r') as fr, open(f'log/face{idx}.log', 'w') as fw:
+		lines = fr.readlines()
+		for i, line in enumerate(lines):
+			if i%8!=idx:
+				continue
+			word, mp4name = line.strip().split('\t')
+			facename = mp4name[:-3]+'face'
+			img_seq = get_frame_tensor(mp4name)
+			face_tensor = crop_face_seq(model_yolo, img_seq, 160, run_device)
+			torch.save(face_tensor, facename)
+			print(f'{word}\t{facename}', file=fw)
+			if (i-idx)%1000==0:
+				print(f'{idx} thread finish {i}')
 
-model_yolo = yolo_model(cfg='config/yolov5s.yaml').float().fuse().eval()
-model_yolo.load_state_dict(torch.load('pretrain_model/raw_yolov5s.pt'))
-model_yolo.to(run_device)
-model_hrnet = get_model_by_name('300W', root_models_path='pretrain_model')
-model_hrnet = model_hrnet.eval()
-model_hrnet.to(run_device)
 
-with open(args.test_list, 'r') as fr:
-	lines = fr.readlines()
-	cnt = 0
-	for line in lines:
-		is_talk, filename = line.strip().split('\t')
-		lmkname = filename[:-3]+'lmk'
-		cnt += 1
-		if os.path.exists(lmkname):
-			continue
-		print(f'processing {cnt:03d}/{len(lines)} file {filename}')
-		img_seq = get_frame_tensor(filename, resolution=256, seq_len=500)
-		img_seq = img_seq.to(run_device)
-		print(img_seq.shape)
-		bbox_list = face_detect(model_yolo, img_seq)
-		face_list = []
-		for i, bbox in enumerate(bbox_list):
-			x1, y1, x2, y2 = bbox
-			if x1>=x2:
-				x1, x2 = 0, args.img_resolution-1
-			if y1>=y2:
-				y1, y2 = 0, args.img_resolution-1
-			face_list.append(pad_resize(img_seq[i, :, y1:y2, x1:x2]))
-		face_tensor = torch.stack(face_list).to(run_device)
-		lmk_seq = get_batch_lmks(model_hrnet, face_tensor,
-		                         output_size=(args.face_resolution, args.face_resolution))
-		torch.save(lmk_seq, lmkname)
-		del face_list, lmk_seq, img_seq, face_tensor
-		torch.cuda.empty_cache()
+def main():
+	mp.set_start_method('spawn')
+	process_list = []
+	for i in range(8):
+		process_list.append(mp.Process(target=func1, args=(i,)))
+	[p.start() for p in process_list]
+	[p.join() for p in process_list]
+	print(f'main thread end')
+
+
+if __name__ == '__main__':
+	main()

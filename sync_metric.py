@@ -16,7 +16,7 @@ import sys
 sys.path.append('/home/tliu/fsx/project/AVsync/third_party/yolo')
 sys.path.append('/home/tliu/fsx/project/AVsync/third_party/HRNet')
 
-from utils.crop_face import crop_face
+from utils.crop_face import crop_face_batch_seq
 from utils.accuracy import get_gt_label, get_rand_idx
 from utils.data_utils.LRWRaw import LRWDataLoader
 from model.Lip2TModel import Lip2T_fc_Model
@@ -235,7 +235,7 @@ def main():
 			a_wav = a_wav.to(run_device)
 			a_img = a_img.to(run_device)
 			a_wid = a_wid.to(run_device)
-			# a_face = crop_face(model_yolo, a_img, args)
+			# a_face = crop_face_batch_seq(model_yolo, a_img, args)
 			a_face = a_img
 			a_face.transpose_(2, 1)
 			a_lip = model_img2lip(a_face)

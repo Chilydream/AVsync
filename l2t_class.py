@@ -13,7 +13,7 @@ import sys
 
 from model.Lip2TModel import Lip2T_fc_Model
 from model.Voice2TModel import Voice2T_fc_Model
-from model.VGGModel import VGG6_speech, ResLip, VGG6_lip
+from model.VGGModel import VGG6_speech, ResLip, VGG6_lip, VGG5_lip
 from utils.data_utils.LRWImage import LRWImageDataLoader
 from utils.data_utils.LRWImageTriplet import LRWImageTripletDataLoader
 from utils.tensor_utils import PadSquare
@@ -98,7 +98,7 @@ def main():
 	# ============================模型载入===============================
 	print('%sStart loading model%s'%('='*20, '='*20))
 	# model_img2lip = ResLip(n_out=args.lip_emb)
-	model_img2lip = VGG6_lip(n_out=args.lip_emb)
+	model_img2lip = VGG5_lip(n_out=args.lip_emb, stride=args.stride)
 	model_lip2t = Lip2T_fc_Model(args.lip_emb, n_class=500)
 	model_list = [model_img2lip, model_lip2t]
 	for model_iter in model_list:
@@ -209,6 +209,7 @@ def main():
 			img_data = img_data.to(run_device)
 			wid_gt = wid_gt.to(run_device)
 
+			img_data.transpose_(2, 1)
 			lip_data = model_img2lip(img_data)
 			wid_pred = model_lip2t(lip_data)
 
@@ -240,8 +241,6 @@ def main():
 		print('')
 		print(f'Current Model M2V Learning Rate is {sch_img2lip.get_last_lr()}')
 		print(f'Current Model V2T Learning Rate is {sch_lip2t.get_last_lr()}')
-		print('Epoch:', epoch, epoch_loss_final, epoch_acc_class,
-		      file=file_train_log)
 		log_dict = {'epoch': epoch,
 		            epoch_loss_final.name: epoch_loss_final.avg,
 		            epoch_loss_class.name: epoch_loss_class.avg,
@@ -280,6 +279,7 @@ def main():
 
 		if args.wandb:
 			wandb.log(log_dict)
+		print(log_dict, file=file_train_log)
 		torch.cuda.synchronize()
 		torch.cuda.empty_cache()
 	file_train_log.close()
