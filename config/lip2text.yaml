@@ -7,7 +7,7 @@ save_step: 1
 valid_step: 0
 
 epoch: 1000
-batch_size: 32
+batch_size: 16
 num_workers: 12
 stride: 2
 img2lip_lr: 0.00005
@@ -25,7 +25,7 @@ train_list: "metadata/LRW_train_3090.txt"
 val_list: "metadata/LRW_val_3090.txt"
 test_list: "metadata/LRW_test_3090.txt"
 max_size: 0
-resolution: 128
+resolution: 256
 lip_emb: 256
 lmk_emb: 40
 triplet_margin: 1.0
