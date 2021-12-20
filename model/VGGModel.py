@@ -177,7 +177,8 @@ class VGG6_lip(nn.Module):
 		# mid = (4, 512, 25)
 		emb_seq = self.fc(mid)
 		# emb_seq = (5, nOut, 25)
-		emb_word = self.frame2word(emb_seq)
+		emb_seq.transpose_(2, 1)
+		_, (emb_word, _) = self.frame2word(emb_seq)
 		emb_word.squeeze_(0)
 		return emb_word
 

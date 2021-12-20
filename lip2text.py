@@ -97,7 +97,7 @@ def main():
 	# ============================模型载入===============================
 	print('%sStart loading model%s'%('='*20, '='*20))
 	# model_img2lip = ResLip(n_out=args.lip_emb)
-	model_img2lip = VGG6_lip(n_out=args.lip_emb)
+	model_img2lip = VGG6_lip(n_out=args.lip_emb, stride=args.stride)
 	model_lip2t = Lip2T_fc_Model(args.lip_emb, n_class=500)
 	model_list = [model_img2lip, model_lip2t]
 	for model_iter in model_list:
@@ -255,8 +255,6 @@ def main():
 		print('')
 		print(f'Current Model M2V Learning Rate is {sch_img2lip.get_last_lr()}')
 		print(f'Current Model V2T Learning Rate is {sch_lip2t.get_last_lr()}')
-		print('Epoch:', epoch, epoch_loss_final, epoch_acc_class,
-		      file=file_train_log)
 		log_dict = {'epoch': epoch,
 		            epoch_loss_final.name: epoch_loss_final.avg,
 		            epoch_loss_triplet.name: epoch_loss_triplet.avg,
@@ -296,6 +294,7 @@ def main():
 
 		if args.wandb:
 			wandb.log(log_dict)
+		print(log_dict, file=file_train_log)
 		torch.cuda.synchronize()
 		torch.cuda.empty_cache()
 	file_train_log.close()
