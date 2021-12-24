@@ -28,6 +28,7 @@ def func1(idx):
 				print(f'{idx} thread finish {i}')
 
 
+
 def main():
 	mp.set_start_method('spawn')
 	process_list = []
