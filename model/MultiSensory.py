@@ -14,7 +14,7 @@ class MultiSensory(nn.Module):
 		self.snd_net0 = nn.Sequential(
 			# 要求输入是双声道
 			# (b, c=2, snd_len=44144, 1)
-			nn.Conv2d(2, 64, kernel_size=(65, 1), stride=(4, 1)),
+			nn.Conv2d(2, 64, kernel_size=(65, 1), stride=(4, 1), padding=(32, 0)),
 			# (b, 64, 11036, 1)
 			nn.BatchNorm2d(64),
 			nn.ReLU(True),
@@ -29,10 +29,10 @@ class MultiSensory(nn.Module):
 		)
 		self.snd_net1 = nn.Sequential(
 			# (b, 64, 2759, 1)
-			nn.Conv2d(64, 128, kernel_size=(15, 1), stride=(4, 1)),
+			nn.Conv2d(64, 128, kernel_size=(15, 1), stride=(4, 1), padding=(7, 0)),
 			nn.BatchNorm2d(128),
 			nn.ReLU(True),
-			nn.Conv2d(128, 128, kernel_size=(15, 1), stride=(1, 1)),
+			nn.Conv2d(128, 128, kernel_size=(15, 1), stride=(1, 1), padding=(7, 0)),
 			# (b, 128, 690, 1)
 			# 然后加上 snd_res1
 		)
@@ -47,10 +47,10 @@ class MultiSensory(nn.Module):
 		)
 		self.snd_net2 = nn.Sequential(
 			# (b, 128, 690, 1)
-			nn.Conv2d(128, 128, kernel_size=(15, 1), stride=(4, 1)),
+			nn.Conv2d(128, 128, kernel_size=(15, 1), stride=(4, 1), padding=(7, 0)),
 			nn.BatchNorm2d(128),
 			nn.ReLU(True),
-			nn.Conv2d(128, 128, kernel_size=(15, 1), stride=(1, 1)),
+			nn.Conv2d(128, 128, kernel_size=(15, 1), stride=(1, 1), padding=(7, 0)),
 			# (b, 128, 173, 1)
 			# 然后加上 snd_res2
 		)
@@ -66,10 +66,10 @@ class MultiSensory(nn.Module):
 		)
 		self.snd_net3 = nn.Sequential(
 			# (b, 128, 173, 1)
-			nn.Conv2d(128, 256, kernel_size=(15, 1), stride=(4, 1)),
+			nn.Conv2d(128, 256, kernel_size=(15, 1), stride=(4, 1), padding=(7, 0)),
 			nn.BatchNorm2d(256),
 			nn.ReLU(True),
-			nn.Conv2d(256, 256, kernel_size=(15, 1), stride=(1, 1)),
+			nn.Conv2d(256, 256, kernel_size=(15, 1), stride=(1, 1), padding=(7, 0)),
 			# (b, 256, 44, 1)
 			# 然后加上 snd_res3
 		)
