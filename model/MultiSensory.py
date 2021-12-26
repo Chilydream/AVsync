@@ -4,6 +4,72 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 
+class Block2(nn.Module):
+	def __init__(self, input_feature, output_feature, kernel_size, stride=None, padding=None):
+		super(Block2, self).__init__()
+		stride = stride if stride is not None else kernel_size
+		padding = padding if padding is not None else list(map(int, kernel_size/2))
+
+		self.res = None
+		if stride!=1 and input_feature==output_feature:
+			self.res = nn.MaxPool2d(kernel_size=1, stride=stride)
+		elif stride!=1:
+			self.res = nn.Conv2d(in_channels=input_feature, out_channels=output_feature,
+			                     kernel_size=1, stride=stride)
+
+		self.model0 = nn.Sequential(
+			nn.Conv2d(in_channels=input_feature, out_channels=output_feature,
+			          kernel_size=kernel_size, stride=stride, padding=padding),
+			nn.BatchNorm2d(output_feature),
+			nn.ReLU(True),
+			nn.Conv2d(in_channels=output_feature, out_channels=output_feature,
+			          kernel_size=kernel_size, stride=1, padding=padding),
+		)
+		self.model1 = nn.Sequential(
+			nn.BatchNorm2d(output_feature),
+			nn.ReLU(),
+		)
+
+	def forward(self, x):
+		res = x if self.res is None else self.res(x)
+		x = self.model0(x)
+		x = self.model1(x+res)
+		return x
+
+
+class Block3(nn.Module):
+	def __init__(self, input_feature, output_feature, kernel_size, stride=None, padding=None):
+		super(Block3, self).__init__()
+		stride = stride if stride is not None else kernel_size
+		padding = padding if padding is not None else list(map(int, kernel_size/2))
+
+		self.res = None
+		if stride!=1 and input_feature==output_feature:
+			self.res = nn.MaxPool3d(kernel_size=1, stride=stride)
+		elif stride!=1 or input_feature!=output_feature:
+			self.res = nn.Conv3d(in_channels=input_feature, out_channels=output_feature,
+			                     kernel_size=1, stride=stride)
+
+		self.model0 = nn.Sequential(
+			nn.Conv3d(in_channels=input_feature, out_channels=output_feature,
+			          kernel_size=kernel_size, stride=stride, padding=self.padding),
+			nn.BatchNorm3d(output_feature),
+			nn.ReLU(True),
+			nn.Conv3d(in_channels=output_feature, out_channels=output_feature,
+			          kernel_size=kernel_size, stride=1, padding=self.padding),
+		)
+		self.model1 = nn.Sequential(
+			nn.BatchNorm3d(output_feature),
+			nn.ReLU(),
+		)
+
+	def forward(self, x):
+		res = x if self.res is None else self.res(x)
+		x = self.model0(x)
+		x = self.model1(x+res)
+		return x
+
+
 class MultiSensory(nn.Module):
 	def __init__(self, sound_rate=16000, image_fps=25):
 		super(MultiSensory, self).__init__()
