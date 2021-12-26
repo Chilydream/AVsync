@@ -8,7 +8,7 @@ class Block2(nn.Module):
 	def __init__(self, input_feature, output_feature, kernel_size, stride=None, padding=None):
 		super(Block2, self).__init__()
 		stride = stride if stride is not None else kernel_size
-		padding = padding if padding is not None else list(map(int, kernel_size/2))
+		padding = padding if padding is not None else list(map(lambda x:max(1, int(x/2)), kernel_size))
 
 		self.res = None
 		if stride!=1 and input_feature==output_feature:
@@ -41,7 +41,7 @@ class Block3(nn.Module):
 	def __init__(self, input_feature, output_feature, kernel_size, stride=None, padding=None):
 		super(Block3, self).__init__()
 		stride = stride if stride is not None else kernel_size
-		padding = padding if padding is not None else list(map(int, kernel_size/2))
+		padding = padding if padding is not None else list(map(lambda x:max(1, int(x/2)), kernel_size))
 
 		self.res = None
 		if stride!=1 and input_feature==output_feature:
@@ -52,11 +52,11 @@ class Block3(nn.Module):
 
 		self.model0 = nn.Sequential(
 			nn.Conv3d(in_channels=input_feature, out_channels=output_feature,
-			          kernel_size=kernel_size, stride=stride, padding=self.padding),
+			          kernel_size=kernel_size, stride=stride, padding=padding),
 			nn.BatchNorm3d(output_feature),
 			nn.ReLU(True),
 			nn.Conv3d(in_channels=output_feature, out_channels=output_feature,
-			          kernel_size=kernel_size, stride=1, padding=self.padding),
+			          kernel_size=kernel_size, stride=1, padding=padding),
 		)
 		self.model1 = nn.Sequential(
 			nn.BatchNorm3d(output_feature),
@@ -76,8 +76,8 @@ class MultiSensory(nn.Module):
 		# 音频输入先进行简单的归一化
 		# tf.sign(sfs)*(tf.log(1 + scale*tf.abs(sfs)) / tf.log(1 + scale))
 
-		# todo: 音频网络的 padding需要计算一遍
-		self.snd_net0 = nn.Sequential(
+
+		self.snd_pre = nn.Sequential(
 			# 要求输入是双声道
 			# (b, c=2, snd_len=44144, 1)
 			nn.Conv2d(2, 64, kernel_size=(65, 1), stride=(4, 1), padding=(32, 0)),
@@ -87,66 +87,13 @@ class MultiSensory(nn.Module):
 			nn.MaxPool2d(kernel_size=(4, 1), stride=(4, 1)),
 			# (b, 64, 2759, 1)
 		)
-		self.snd_res1 = nn.Sequential(
-			# (b, 64, 2759, 1)
-			nn.Conv2d(64, 128, kernel_size=(1, 1), stride=(4, 1)),
-			# (b, 128, 690, 1)
-			nn.BatchNorm2d(128),
-		)
-		self.snd_net1 = nn.Sequential(
-			# (b, 64, 2759, 1)
-			nn.Conv2d(64, 128, kernel_size=(15, 1), stride=(4, 1), padding=(7, 0)),
-			nn.BatchNorm2d(128),
-			nn.ReLU(True),
-			nn.Conv2d(128, 128, kernel_size=(15, 1), stride=(1, 1), padding=(7, 0)),
-			# (b, 128, 690, 1)
-			# 然后加上 snd_res1
-		)
-		self.snd_bn1 = nn.Sequential(
-			nn.BatchNorm3d(128),
-			nn.ReLU(),
-		)
-		self.snd_res2 = nn.Sequential(
-			# (b, 128, 690, 1)
-			nn.MaxPool2d(kernel_size=(1, 1), stride=(4, 1)),
-			# (b, 128, 173, 1)
-		)
-		self.snd_net2 = nn.Sequential(
-			# (b, 128, 690, 1)
-			nn.Conv2d(128, 128, kernel_size=(15, 1), stride=(4, 1), padding=(7, 0)),
-			nn.BatchNorm2d(128),
-			nn.ReLU(True),
-			nn.Conv2d(128, 128, kernel_size=(15, 1), stride=(1, 1), padding=(7, 0)),
-			# (b, 128, 173, 1)
-			# 然后加上 snd_res2
-		)
-		self.snd_bn2 = nn.Sequential(
-			nn.BatchNorm3d(128),
-			nn.ReLU(),
-		)
-		self.snd_res3 = nn.Sequential(
-			# (b, 128, 173, 1)
-			nn.Conv2d(128, 256, kernel_size=(1, 1), stride=(4, 1)),
-			# (b, 256, 44, 1)
-			nn.BatchNorm2d(256),
-		)
-		self.snd_net3 = nn.Sequential(
-			# (b, 128, 173, 1)
-			nn.Conv2d(128, 256, kernel_size=(15, 1), stride=(4, 1), padding=(7, 0)),
-			nn.BatchNorm2d(256),
-			nn.ReLU(True),
-			nn.Conv2d(256, 256, kernel_size=(15, 1), stride=(1, 1), padding=(7, 0)),
-			# (b, 256, 44, 1)
-			# 然后加上 snd_res3
-		)
-		self.snd_bn3 = nn.Sequential(
-			nn.BatchNorm3d(256),
-			nn.ReLU(),
-		)
+		self.snd_block0 = Block2(64, 128, kernel_size=(15, 1), stride=(4, 1))
+		self.snd_block1 = Block2(128, 128, kernel_size=(15, 1), stride=(4, 1))
+		self.snd_block2 = Block2(128, 256, kernel_size=(15, 1), stride=(4, 1))
 
 		# 输入的图片也要进行一次归一化
 		# -1. + (2./255) * im
-		self.img_net0 = nn.Sequential(
+		self.img_pre = nn.Sequential(
 			# x = (b, 3, 63, 224, 224)
 			nn.Conv3d(3, 64, kernel_size=(5, 7, 7), stride=(2, 2, 2), padding=(2, 3, 3)),
 			# x = (b, 64, 32, 112, 112)
@@ -155,44 +102,13 @@ class MultiSensory(nn.Module):
 			nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1)),
 			# x = (b, 64, 32, 56, 56)
 		)
-		# todo: img_res1 = img_net0的输出
-		self.img_net1 = nn.Sequential(
-			# x = (b, 64, 32, 56, 56)
-			nn.Conv3d(64, 64, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(0, 1, 1)),  # 2-1-1
-			nn.BatchNorm3d(64),
-			nn.ReLU(True),
-			nn.Conv3d(64, 64, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(0, 1, 1)),  # 2-1-2
-			# x = (b, 64, 32, 56, 56)
-			# 然后加 img_res1
-		)
-		self.img_bn1 = nn.Sequential(
-			nn.BatchNorm3d(64),
-			nn.ReLU(),
-		)
-		self.img_res2 = nn.Sequential(
-			# x = (b, 64, 32, 56, 56)
-			nn.MaxPool3d(kernel_size=(1, 1, 1), stride=(2, 2, 2)),
-			# x = (b, 64, 16, 28, 28)
-		)
-		self.img_net2 = nn.Sequential(
-			# x = (b, 64, 32, 56, 56)
-			nn.Conv3d(64, 64, kernel_size=(3, 3, 3), stride=(2, 2, 2), padding=(0, 1, 1)),
-			# x = (b, 64, 16, 28, 28)
-			nn.BatchNorm3d(64),
-			nn.ReLU(True),
-			nn.Conv3d(64, 64, kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(0, 1, 1)),
-			# x = (b, 64, 16, 28, 28)
-			# 然后加 img_res2
-		)
-		self.img_bn2 = nn.Sequential(
-			nn.BatchNorm3d(64),
-			nn.ReLU(),
-		)
+		self.img_block0 = Block3(3, 64, kernel_size=(3, 3, 3), stride=1)
+		self.img_block1 = Block3(64, 64, kernel_size=(3, 3, 3), stride=2)
 
 		# img_num = fps/4
 		# snd_num = rate/1024
 		self.frac_pool = nn.FractionalMaxPool2d(kernel_size=3, output_ratio=(image_fps*256/sound_rate))
-		# 要将 (b, 256, 44, 1) 转换成 (1, 256, 16, 1)
+		# 要将 (b, 256, 44, 1) 转换成 (b, 256, 16, 1)
 		# 将输入的音频和视频帧对应上
 		# ques：kernel_size要设置为多少？
 		# ques：torch的这个网络层可能很不好用
@@ -220,3 +136,12 @@ class MultiSensory(nn.Module):
 			nn.BatchNorm3d(128),
 			nn.ReLU(),
 		)
+
+		self.merge_block0 = Block3(128, 128, kernel_size=(3, 3, 3), stride=1)
+		self.merge_block1 = Block3(128, 128, kernel_size=(3, 3, 3), stride=1)
+		self.merge_block2 = Block3(128, 256, kernel_size=(3, 3, 3), stride=2)
+		self.merge_block3 = Block3(256, 256, kernel_size=(3, 3, 3), stride=1)
+		# todo: 设置 time_stride
+		self.merge_block4 = Block3(256, 512, kernel_size=(3, 3, 3), stride=(1, 2, 2))
+		# todo: stride不是 int的时候，残差值的计算会有问题吗
+		self.merge_block5 = Block3(512, 512, kernel_size=(3, 3, 3), stride=1)

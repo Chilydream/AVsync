@@ -40,4 +40,6 @@ def main():
 
 
 if __name__ == '__main__':
-	main()
+	kernel_size = (15, 1)
+	b = list(map(lambda x:max(1, int(x/2)), kernel_size))
+	print(b)
