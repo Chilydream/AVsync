@@ -8,12 +8,12 @@ class Block2(nn.Module):
 	def __init__(self, input_feature, output_feature, kernel_size, stride=None, padding=None):
 		super(Block2, self).__init__()
 		stride = stride if stride is not None else kernel_size
-		padding = padding if padding is not None else list(map(lambda x:max(1, int(x/2)), kernel_size))
+		padding = padding if padding is not None else list(map(lambda x: max(1, int(x/2)), kernel_size))
 
 		self.res = None
-		if stride!=1 and input_feature==output_feature:
+		if stride != 1 and input_feature == output_feature:
 			self.res = nn.MaxPool2d(kernel_size=1, stride=stride)
-		elif stride!=1:
+		elif stride != 1:
 			self.res = nn.Conv2d(in_channels=input_feature, out_channels=output_feature,
 			                     kernel_size=1, stride=stride)
 
@@ -41,12 +41,12 @@ class Block3(nn.Module):
 	def __init__(self, input_feature, output_feature, kernel_size, stride=None, padding=None):
 		super(Block3, self).__init__()
 		stride = stride if stride is not None else kernel_size
-		padding = padding if padding is not None else list(map(lambda x:max(1, int(x/2)), kernel_size))
+		padding = padding if padding is not None else list(map(lambda x: max(1, int(x/2)), kernel_size))
 
 		self.res = None
-		if stride!=1 and input_feature==output_feature:
+		if stride != 1 and input_feature == output_feature:
 			self.res = nn.MaxPool3d(kernel_size=1, stride=stride)
-		elif stride!=1 or input_feature!=output_feature:
+		elif stride != 1 or input_feature != output_feature:
 			self.res = nn.Conv3d(in_channels=input_feature, out_channels=output_feature,
 			                     kernel_size=1, stride=stride)
 
@@ -71,11 +71,10 @@ class Block3(nn.Module):
 
 
 class MultiSensory(nn.Module):
-	def __init__(self, sound_rate=16000, image_fps=25):
+	def __init__(self, sound_rate=21000, image_fps=30):
 		super(MultiSensory, self).__init__()
 		# 音频输入先进行简单的归一化
 		# tf.sign(sfs)*(tf.log(1 + scale*tf.abs(sfs)) / tf.log(1 + scale))
-
 
 		self.snd_pre = nn.Sequential(
 			# 要求输入是双声道
@@ -121,11 +120,11 @@ class MultiSensory(nn.Module):
 		)
 		# 取单声道，然后将维度修改为 (b, 128, 16, 1, 1)
 		# 再使用 torch.repeat 将维度修改为 (b, 128, 16, 28, 28)也就是和img的大小相同
-		# 拼接 音频特征和图像特征，得到 (b, 256, 16, 28, 28)
-		# todo: 取 (b, :64, ...)和 (b, -64:, ...) 拼接得到残差向量 merge_res
+		# 拼接 音频特征和图像特征，得到 (b, 192, 16, 28, 28)
+		# 取 (b, :64, ...)和 (b, -64:, ...) 拼接得到残差向量 merge_res
 
 		self.merge_conv = nn.Sequential(
-			nn.Conv3d(256, 512, kernel_size=(1, 1, 1), stride=(1, 1, 1)),
+			nn.Conv3d(192, 512, kernel_size=(1, 1, 1), stride=(1, 1, 1)),
 			nn.BatchNorm3d(512),
 			nn.ReLU(True),
 			nn.Conv3d(512, 128, kernel_size=(1, 1, 1), stride=(1, 1, 1)),
@@ -137,11 +136,79 @@ class MultiSensory(nn.Module):
 			nn.ReLU(),
 		)
 
-		self.merge_block0 = Block3(128, 128, kernel_size=(3, 3, 3), stride=1)
-		self.merge_block1 = Block3(128, 128, kernel_size=(3, 3, 3), stride=1)
-		self.merge_block2 = Block3(128, 256, kernel_size=(3, 3, 3), stride=2)
-		self.merge_block3 = Block3(256, 256, kernel_size=(3, 3, 3), stride=1)
+		self.merge_block0 = Block3(128, 128, kernel_size=(3, 3, 3), stride=1)  # 3-1
+		self.merge_block1 = Block3(128, 128, kernel_size=(3, 3, 3), stride=1)  # 3-2
+		self.merge_block2 = Block3(128, 256, kernel_size=(3, 3, 3), stride=2)  # 4-1
+		self.merge_block3 = Block3(256, 256, kernel_size=(3, 3, 3), stride=1)  # 4-2
 		# todo: 设置 time_stride
-		self.merge_block4 = Block3(256, 512, kernel_size=(3, 3, 3), stride=(1, 2, 2))
-		# todo: stride不是 int的时候，残差值的计算会有问题吗
-		self.merge_block5 = Block3(512, 512, kernel_size=(3, 3, 3), stride=1)
+		time_stride = 1
+		self.merge_block4 = Block3(256, 512, kernel_size=(3, 3, 3), stride=(time_stride, 2, 2))  # 5-1
+		self.merge_block5 = Block3(512, 512, kernel_size=(3, 3, 3), stride=1)  # 5-2
+		# (b, 512, 8, 7, 7)
+		self.merge_mean = nn.AdaptiveAvgPool3d((1, 1, 1))
+		# (b, 512, 1, 1, 1)
+		self.joint_logits = nn.Sequential(
+			nn.Conv3d(512, 1, kernel_size=(1, 1, 1), stride=(1, 1, 1))
+			# 然后取 x[:, :, 0, 0, 0]
+		)
+		self.cam = nn.Sequential(
+			# 这里输入的是求均值前的 (b, 512, 8, 7, 7)
+			nn.Conv3d(512, 1, kernel_size=(1, 1, 1), stride=(1, 1, 1)),
+		)
+
+	def snd_forward(self, snds):
+		# (b, c=2, snd_len=44144, 1)
+		snd_scale = 255
+		snds = torch.sign(snds)*(torch.log(1+snd_scale*torch.abs(snds))/np.log(1+snd_scale))
+		if snds.dim() != 4:
+			snds.unsqueeze_(3)
+
+		x = self.snd_pre(snds)
+		x = self.snd_block0(x)
+		x = self.snd_block1(x)
+		x = self.snd_block2(x)
+		return x
+
+	def img_forwad(self, imgs):
+		# (b, c=3, img_len=63, 224, 224)
+		# 如果图片的值是 0~255就需要对图片进行归一化
+		imgs = (2./255)*imgs-1.0
+
+		x = self.img_pre(imgs)
+		x = self.img_block0(x)
+		x = self.img_block1(x)
+		return x
+
+	def forward(self, snd_feature, img_feature):
+		# snd_feature = (b, 256, 44, 1)
+		# img_feature = (b, 64, 16, 28, 28)
+		snd_feature = self.frac_pool(snd_feature)
+		# snd_feature = (b, 256, 16, 1)
+		snd_feature = self.snd_net4(snd_feature)
+		# snd_feature = (b, 128, 16, 1)
+		snd_feature.unsqueeze_(4)
+		snd_feature: torch.Tensor
+		snd_feature.repeat((1, 1, 1, img_feature.shape[-2], img_feature.shape[-1]))
+		# snd_feature = (b, 128, 16, 28, 28)
+
+		merge_feature = torch.cat((snd_feature, img_feature), dim=1)
+		# merge_feature = (b, 192, 16, 28, 28)
+		merge_res = torch.cat((merge_feature[:, :64, ...], merge_feature[:, -64:, ...]), dim=1)
+		# merge_res = (b, 128, 16, 28, 28)
+
+		merge_feature = self.merge_conv(merge_feature)
+		merge_feature = self.merge_bn(merge_feature)
+		merge_feature = self.merge_block0(merge_feature)
+		merge_feature = self.merge_block1(merge_feature)
+		merge_feature = self.merge_block2(merge_feature)
+		merge_feature = self.merge_block3(merge_feature)
+		merge_feature = self.merge_block4(merge_feature)
+		merge_feature = self.merge_block5(merge_feature)
+		# (b, 512, 8, 7, 7)
+		merge_mean = self.merge_mean(merge_feature)
+		# (b, 512, 1, 1, 1)
+		joint_logit = self.joint_logits(merge_mean)
+		# (b, 1, 1, 1, 1)
+		joint_logit = joint_logit[:, :, 0, 0, 0]
+		# joint_logit = (b, 1)
+		return joint_logit
