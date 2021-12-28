@@ -1,4 +1,7 @@
 import multiprocessing as mp
+import os
+import time
+import shutil
 import torch
 import sys
 
@@ -13,20 +16,29 @@ def func1(idx):
 	model_yolo.load_state_dict(torch.load('pretrain_model/raw_yolov5s.pt'))
 	run_device = torch.device('cuda:0')
 	model_yolo = model_yolo.to(run_device)
-	with open('metadata/LRW_train_3090.txt', 'r') as fr, open(f'log/face{idx}.log', 'w') as fw:
+	start_time = time.time()
+	with open('metadata/LRW_train_3090.txt', 'r') as fr, open(f'log/new_face{idx}.log', 'a') as fw:
 		lines = fr.readlines()
 		for i, line in enumerate(lines):
-			if i%8!=idx:
+			if i%8 != idx:
 				continue
 			word, mp4name = line.strip().split('\t')
 			facename = mp4name[:-3]+'face'
+			new_facename = facename.replace('/home/tliu/fsx', '/hdd1')
+			dirname = os.path.dirname(new_facename)
+			os.makedirs(dirname, exist_ok=True)
+
+			if os.path.exists(facename):
+				shutil.move(facename, new_facename)
+				print(f'{word}\t{new_facename}', file=fw)
+				continue
 			img_seq = get_frame_tensor(mp4name)
 			face_tensor = crop_face_seq(model_yolo, img_seq, 160, run_device)
-			torch.save(face_tensor, facename)
-			print(f'{word}\t{facename}', file=fw)
-			if (i-idx)%1000==0:
-				print(f'{idx} thread finish {i}')
-
+			torch.save(face_tensor, new_facename)
+			print(f'{word}\t{new_facename}', file=fw)
+			if (i-idx)%1000 == 0:
+				nagare = int(time.time()-start_time)
+				print(f'{idx} thread finish {i}, cost {nagare} seconds')
 
 
 def main():
@@ -40,6 +52,4 @@ def main():
 
 
 if __name__ == '__main__':
-	kernel_size = (15, 1)
-	b = list(map(lambda x:max(1, int(x/2)), kernel_size))
-	print(b)
+	main()

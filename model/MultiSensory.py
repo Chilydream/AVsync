@@ -71,15 +71,15 @@ class Block3(nn.Module):
 
 
 class MultiSensory(nn.Module):
-	def __init__(self, sound_rate=21000, image_fps=30):
+	def __init__(self, sound_rate=21000, image_fps=30, audio_channel=1):
 		super(MultiSensory, self).__init__()
 		# 音频输入先进行简单的归一化
 		# tf.sign(sfs)*(tf.log(1 + scale*tf.abs(sfs)) / tf.log(1 + scale))
 
 		self.snd_pre = nn.Sequential(
 			# 要求输入是双声道
-			# (b, c=2, snd_len=44144, 1)
-			nn.Conv2d(2, 64, kernel_size=(65, 1), stride=(4, 1), padding=(32, 0)),
+			# (b, audio_channel, snd_len=44144, 1)
+			nn.Conv2d(audio_channel, 64, kernel_size=(65, 1), stride=(4, 1), padding=(32, 0)),
 			# (b, 64, 11036, 1)
 			nn.BatchNorm2d(64),
 			nn.ReLU(True),
@@ -151,6 +151,10 @@ class MultiSensory(nn.Module):
 			nn.Conv3d(512, 1, kernel_size=(1, 1, 1), stride=(1, 1, 1))
 			# 然后取 x[:, :, 0, 0, 0]
 		)
+		self.joint_class = nn.Sequential(
+			nn.Conv1d(1, 2, kernel_size=(1,), stride=(1,)),
+			nn.Softmax(1),
+		)
 		self.cam = nn.Sequential(
 			# 这里输入的是求均值前的 (b, 512, 8, 7, 7)
 			nn.Conv3d(512, 1, kernel_size=(1, 1, 1), stride=(1, 1, 1)),
@@ -179,7 +183,7 @@ class MultiSensory(nn.Module):
 		x = self.img_block1(x)
 		return x
 
-	def forward(self, snd_feature, img_feature):
+	def merge_forward(self, snd_feature, img_feature):
 		# snd_feature = (b, 256, 44, 1)
 		# img_feature = (b, 64, 16, 28, 28)
 		snd_feature = self.frac_pool(snd_feature)
@@ -211,4 +215,8 @@ class MultiSensory(nn.Module):
 		# (b, 1, 1, 1, 1)
 		joint_logit = joint_logit[:, :, 0, 0, 0]
 		# joint_logit = (b, 1)
-		return joint_logit
+		joint_class = self.joint_class(joint_logit)
+		return joint_class
+
+	def forward(self):
+		raise NotImplementedError

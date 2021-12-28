@@ -15,7 +15,7 @@ class TrainOptions:
 		parser = argparse.ArgumentParser(description='Audio Video Synchronization')
 		if isinstance(train_config, dict):
 			for key, value in train_config.items():
-				arg_type = type(value) if type(value) is not None else str
+				arg_type = type(value) if value is not None else str
 				default_value = value
 				if arg_type==bool:
 					arg_type=str2bool

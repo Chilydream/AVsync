@@ -15,10 +15,10 @@ from utils.data_utils.LRWRaw import LRWDataset
 
 class LRWImageDataset(LRWDataset):
 	def __init__(self, dataset_file, seq_len, resolution, max_size):
-		super(LRWImageDataset, self).__init__(dataset_file=dataset_file, n_mfcc=-1,
-		                                      seq_len=seq_len,
-		                                      resolution=resolution,
-		                                      max_size=max_size)
+		super().__init__(dataset_file=dataset_file, n_mfcc=-1,
+		                 seq_len=seq_len,
+		                 resolution=resolution,
+		                 max_size=max_size)
 
 	def __getitem__(self, item):
 		mp4_name = self.file_list[item]
