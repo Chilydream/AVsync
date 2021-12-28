@@ -237,7 +237,7 @@ def main():
 			a_voice = model_ms.snd_forward(a_wav)
 
 			label_gt = get_gt_label(a_wid, new_idx).to(run_device)
-			label_pred = model_ms.merge_forward(a_lip, a_voice)
+			label_pred = model_ms.merge_forward(img_feature=a_lip, snd_feature=a_voice)
 
 			# ======================计算唇部特征单词分类损失===========================
 			loss_class = criterion_class(label_pred, label_gt)

@@ -2,13 +2,15 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+import torchsnooper
 
 
+@torchsnooper.snoop()
 class Block2(nn.Module):
 	def __init__(self, input_feature, output_feature, kernel_size, stride=None, padding=None):
 		super(Block2, self).__init__()
 		stride = stride if stride is not None else kernel_size
-		padding = padding if padding is not None else list(map(lambda x: max(1, int(x/2)), kernel_size))
+		padding = padding if padding is not None else list(map(lambda x: max(0, int(x/2)), kernel_size))
 
 		self.res = None
 		if stride != 1 and input_feature == output_feature:
@@ -41,7 +43,7 @@ class Block3(nn.Module):
 	def __init__(self, input_feature, output_feature, kernel_size, stride=None, padding=None):
 		super(Block3, self).__init__()
 		stride = stride if stride is not None else kernel_size
-		padding = padding if padding is not None else list(map(lambda x: max(1, int(x/2)), kernel_size))
+		padding = padding if padding is not None else list(map(lambda x: max(0, int(x/2)), kernel_size))
 
 		self.res = None
 		if stride != 1 and input_feature == output_feature:
@@ -70,6 +72,7 @@ class Block3(nn.Module):
 		return x
 
 
+@torchsnooper.snoop()
 class MultiSensory(nn.Module):
 	def __init__(self, sound_rate=21000, image_fps=30, audio_channel=1):
 		super(MultiSensory, self).__init__()
@@ -101,12 +104,14 @@ class MultiSensory(nn.Module):
 			nn.MaxPool3d(kernel_size=(1, 3, 3), stride=(1, 2, 2), padding=(0, 1, 1)),
 			# x = (b, 64, 32, 56, 56)
 		)
-		self.img_block0 = Block3(3, 64, kernel_size=(3, 3, 3), stride=1)
+		self.img_block0 = Block3(64, 64, kernel_size=(3, 3, 3), stride=1)
 		self.img_block1 = Block3(64, 64, kernel_size=(3, 3, 3), stride=2)
 
 		# img_num = fps/4
 		# snd_num = rate/1024
-		self.frac_pool = nn.FractionalMaxPool2d(kernel_size=3, output_ratio=(image_fps*256/sound_rate))
+		# self.frac_pool = nn.FractionalMaxPool2d(kernel_size=3, output_ratio=(image_fps*256/sound_rate))
+		self.frac_pool = nn.FractionalMaxPool2d(kernel_size=3, output_size=(8, 1))
+
 		# 要将 (b, 256, 44, 1) 转换成 (b, 256, 16, 1)
 		# 将输入的音频和视频帧对应上
 		# ques：kernel_size要设置为多少？
@@ -152,7 +157,7 @@ class MultiSensory(nn.Module):
 			# 然后取 x[:, :, 0, 0, 0]
 		)
 		self.joint_class = nn.Sequential(
-			nn.Conv1d(1, 2, kernel_size=(1,), stride=(1,)),
+			nn.Linear(1, 2),
 			nn.Softmax(1),
 		)
 		self.cam = nn.Sequential(
@@ -164,8 +169,11 @@ class MultiSensory(nn.Module):
 		# (b, c=2, snd_len=44144, 1)
 		snd_scale = 255
 		snds = torch.sign(snds)*(torch.log(1+snd_scale*torch.abs(snds))/np.log(1+snd_scale))
-		if snds.dim() != 4:
-			snds.unsqueeze_(3)
+		if snds.dim() == 2:
+			snds.unsqueeze_(1)
+			snds.unsqueeze_(-1)
+		elif snds.dim() == 3:
+			snds.unsqueeze_(-1)
 
 		x = self.snd_pre(snds)
 		x = self.snd_block0(x)
@@ -186,13 +194,14 @@ class MultiSensory(nn.Module):
 	def merge_forward(self, snd_feature, img_feature):
 		# snd_feature = (b, 256, 44, 1)
 		# img_feature = (b, 64, 16, 28, 28)
+		snd_feature = snd_feature.repeat((1, 1, 1, 3))
 		snd_feature = self.frac_pool(snd_feature)
 		# snd_feature = (b, 256, 16, 1)
 		snd_feature = self.snd_net4(snd_feature)
 		# snd_feature = (b, 128, 16, 1)
 		snd_feature.unsqueeze_(4)
 		snd_feature: torch.Tensor
-		snd_feature.repeat((1, 1, 1, img_feature.shape[-2], img_feature.shape[-1]))
+		snd_feature = snd_feature.repeat((1, 1, 1, img_feature.shape[-2], img_feature.shape[-1]))
 		# snd_feature = (b, 128, 16, 28, 28)
 
 		merge_feature = torch.cat((snd_feature, img_feature), dim=1)
@@ -201,7 +210,7 @@ class MultiSensory(nn.Module):
 		# merge_res = (b, 128, 16, 28, 28)
 
 		merge_feature = self.merge_conv(merge_feature)
-		merge_feature = self.merge_bn(merge_feature)
+		merge_feature = self.merge_bn(merge_feature+merge_res)
 		merge_feature = self.merge_block0(merge_feature)
 		merge_feature = self.merge_block1(merge_feature)
 		merge_feature = self.merge_block2(merge_feature)

@@ -12,10 +12,10 @@ from third_party.yolo.yolo_models.yolo import Model as yolo_model
 
 
 def func1(idx):
-	model_yolo = yolo_model(cfg='config/yolov5s.yaml').float().fuse().eval()
-	model_yolo.load_state_dict(torch.load('pretrain_model/raw_yolov5s.pt'))
-	run_device = torch.device('cuda:0')
-	model_yolo = model_yolo.to(run_device)
+	# model_yolo = yolo_model(cfg='config/yolov5s.yaml').float().fuse().eval()
+	# model_yolo.load_state_dict(torch.load('pretrain_model/raw_yolov5s.pt'))
+	# run_device = torch.device('cuda:0')
+	# model_yolo = model_yolo.to(run_device)
 	start_time = time.time()
 	with open('metadata/LRW_train_3090.txt', 'r') as fr, open(f'log/new_face{idx}.log', 'a') as fw:
 		lines = fr.readlines()
@@ -25,6 +25,8 @@ def func1(idx):
 			word, mp4name = line.strip().split('\t')
 			facename = mp4name[:-3]+'face'
 			new_facename = facename.replace('/home/tliu/fsx', '/hdd1')
+			if os.path.exists(new_facename):
+				continue
 			dirname = os.path.dirname(new_facename)
 			os.makedirs(dirname, exist_ok=True)
 
@@ -32,6 +34,9 @@ def func1(idx):
 				shutil.move(facename, new_facename)
 				print(f'{word}\t{new_facename}', file=fw)
 				continue
+			print('复制完了')
+			break
+
 			img_seq = get_frame_tensor(mp4name)
 			face_tensor = crop_face_seq(model_yolo, img_seq, 160, run_device)
 			torch.save(face_tensor, new_facename)
