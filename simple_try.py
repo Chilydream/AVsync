@@ -27,10 +27,7 @@ def func1(idx):
 			new_facename = facename.replace('/home/tliu/fsx', '/hdd1')
 			dirname = os.path.dirname(new_facename)
 			os.makedirs(dirname, exist_ok=True)
-
-			if os.path.exists(facename):
-				shutil.move(facename, new_facename)
-				print(f'{word}\t{new_facename}', file=fw)
+			if os.path.exists(new_facename):
 				continue
 			img_seq = get_frame_tensor(mp4name)
 			face_tensor = crop_face_seq(model_yolo, img_seq, 160, run_device)
