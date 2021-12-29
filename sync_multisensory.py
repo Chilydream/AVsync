@@ -33,7 +33,7 @@ from third_party.HRNet.utils_inference import get_model_by_name, get_batch_lmks
 from third_party.yolo.yolo_models.yolo import Model as yolo_model
 
 
-def evaluate(model_img2lip, model_wav2v, model_sync, criterion_class, loader, args):
+def evaluate(model_ms, criterion_class, loader, args):
 	run_device = torch.device("cuda:0" if args.gpu else "cpu")
 
 	val_loss_class = Meter('Class Loss', 'avg', ':.4f')
@@ -44,18 +44,21 @@ def evaluate(model_img2lip, model_wav2v, model_sync, criterion_class, loader, ar
 
 	print('\tEvaluating Result:')
 	for data in loader:
-		a_wav, a_lmk, a_wid = data
+		a_wav, a_img, a_wid = data
 		a_wav = a_wav.to(run_device)
-		a_lmk = a_lmk.to(run_device)
+		a_img = a_img.to(run_device)
 		a_wid = a_wid.to(run_device)
-		a_lip = model_img2lip(a_lmk)
-		a_voice = model_wav2v(a_wav)
+		# a_face = crop_face_batch_seq(model_yolo, a_img, args)
+		a_face = a_img
+		a_face.transpose_(2, 1)
+		a_lip = model_ms.img_forwad(a_face)
 
-		# new_idx = get_rand_idx(args.batch_size)
-		new_idx = np.arange(0, args.batch_size)
-		a_voice = a_voice[new_idx, :]
+		new_idx = get_rand_idx(args.batch_size)
+		a_wav = a_wav[new_idx, :]
+		a_voice = model_ms.snd_forward(a_wav)
+
 		label_gt = get_gt_label(a_wid, new_idx).to(run_device)
-		label_pred = model_sync(a_lip, a_voice)
+		label_pred = model_ms.merge_forward(img_feature=a_lip, snd_feature=a_voice)
 
 		# ======================计算唇部特征单词分类损失===========================
 		loss_class = criterion_class(label_pred, label_gt)
@@ -171,7 +174,7 @@ def main():
 				for model_iter in model_list:
 					model_iter.eval()
 				criterion_class.eval()
-				evaluate(model_img2lip, model_wav2v, model_sync,
+				evaluate(model_ms,
 				         criterion_class,
 				         valid_loader, args)
 		else:
@@ -186,7 +189,7 @@ def main():
 				for model_iter in model_list:
 					model_iter.eval()
 				criterion_class.eval()
-				evaluate(model_img2lip, model_wav2v, model_sync,
+				evaluate(model_ms,
 				         criterion_class,
 				         test_loader, args)
 		print(f'\n\nFinish Evaluation\n\n')
@@ -289,7 +292,7 @@ def main():
 					model_iter.eval()
 				criterion_class.eval()
 				try:
-					log_dict.update(evaluate(model_img2lip, model_wav2v, model_sync,
+					log_dict.update(evaluate(model_ms,
 					                         criterion_class, valid_loader, args))
 				except:
 					print('Evaluating Error')

@@ -55,6 +55,15 @@ def get_Lab_meta(metafile, mode):
 				print(f'1\t{new_filename}', file=fw)
 
 
+def word_split():
+	old_train = 'metadata/LRW_train_3090.txt'
+	old_val = 'metadata/LRW_val_3090.txt'
+	old_test = 'metadata/LRW_test_3090.txt'
+	new_train = 'metadata/LRW_train_3090.txt'
+	new_val = 'metadata/LRW_val_3090.txt'
+	new_test = 'metadata/LRW_test_3090.txt'
+
+
 if __name__ == '__main__':
 	get_LRW_meta('metadata/LRW_train_3090.txt', 'train')
 	get_LRW_meta('metadata/LRW_val_3090.txt', 'val')
