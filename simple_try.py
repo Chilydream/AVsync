@@ -29,10 +29,7 @@ def func1(idx):
 				continue
 			dirname = os.path.dirname(new_facename)
 			os.makedirs(dirname, exist_ok=True)
-
-			if os.path.exists(facename):
-				shutil.move(facename, new_facename)
-				print(f'{word}\t{new_facename}', file=fw)
+			if os.path.exists(new_facename):
 				continue
 			print('复制完了')
 			break
