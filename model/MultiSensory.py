@@ -4,6 +4,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torchsnooper
 
+from utils.tensor_utils import FracPool
+
 
 @torchsnooper.snoop()
 class Block2(nn.Module):
@@ -110,7 +112,8 @@ class MultiSensory(nn.Module):
 		# img_num = fps/4
 		# snd_num = rate/1024
 		# self.frac_pool = nn.FractionalMaxPool2d(kernel_size=3, output_ratio=(image_fps*256/sound_rate))
-		self.frac_pool = nn.FractionalMaxPool2d(kernel_size=3, output_size=(8, 1))
+		# self.frac_pool = nn.FractionalMaxPool2d(kernel_size=3, output_size=(8, 1))
+		self.frac_pool = FracPool(sound_rate/image_fps/256)
 
 		# 要将 (b, 256, 44, 1) 转换成 (b, 256, 16, 1)
 		# 将输入的音频和视频帧对应上
@@ -194,7 +197,6 @@ class MultiSensory(nn.Module):
 	def merge_forward(self, snd_feature, img_feature):
 		# snd_feature = (b, 256, 44, 1)
 		# img_feature = (b, 64, 16, 28, 28)
-		snd_feature = snd_feature.repeat((1, 1, 1, 3))
 		snd_feature = self.frac_pool(snd_feature)
 		# snd_feature = (b, 256, 16, 1)
 		snd_feature = self.snd_net4(snd_feature)

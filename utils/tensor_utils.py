@@ -31,12 +31,13 @@ class MyContrastiveLoss(nn.Module):
 		                  (1-label)*torch.pow(torch.clamp(self.margin-euclidean_distance, min=0.0), 2))
 		return loss
 
+
 class FracPool(nn.Module):
 	def __init__(self, frac_ratio, pool_dim=-2):
 		# frac_ratio = input_size/output_size
 		# input_size >= output_size
-		assert 0<frac_ratio<=1
-		assert pool_dim==-2
+		assert frac_ratio>=1
+		assert pool_dim == -2
 		# todo: 要怎么实现普适性？通过 transform把 pool_dim和 1换位置吗？
 
 		super(FracPool, self).__init__()
@@ -45,6 +46,13 @@ class FracPool(nn.Module):
 
 	def forward(self, x):
 		input_size = x.shape[self.pool_dim]
-		new_indices = list(map(lambda i:int(i*self.frac_ratio), range(int(input_size/self.frac_ratio))))
+		new_indices = list(map(lambda i: int(i*self.frac_ratio), range(int(input_size/self.frac_ratio))))
 		new_indices.append(input_size)
-		new_indices.append(input_size)
+		output = []
+		for i in range(len(new_indices)-1):
+			max_value, _ = torch.max(x[..., new_indices[i]:new_indices[i+1], :],
+			                         dim=self.pool_dim,
+			                         keepdim=True)
+			output.append(max_value)
+		output = torch.cat(output, dim=self.pool_dim)
+		return output
