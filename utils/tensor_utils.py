@@ -46,13 +46,13 @@ class FracPool(nn.Module):
 
 	def forward(self, x):
 		input_size = x.shape[self.pool_dim]
-		new_indices = list(map(lambda i: int(i*self.frac_ratio), range(int(input_size/self.frac_ratio))))
+		new_indices = list(map(lambda i: int(i*self.frac_ratio), range(int(input_size/self.frac_ratio+.5))))
 		new_indices.append(input_size)
-		output = []
+		output_list = []
 		for i in range(len(new_indices)-1):
 			max_value, _ = torch.max(x[..., new_indices[i]:new_indices[i+1], :],
 			                         dim=self.pool_dim,
 			                         keepdim=True)
-			output.append(max_value)
-		output = torch.cat(output, dim=self.pool_dim)
+			output_list.append(max_value)
+		output = torch.cat(output_list, dim=self.pool_dim)
 		return output

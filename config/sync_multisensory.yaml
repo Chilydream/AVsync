@@ -7,13 +7,9 @@ save_step: 1
 valid_step: 0
 
 epoch: 1000
-batch_size: 8
+batch_size: 32
 num_workers: 12
-img2lip_lr: 0.0001
-img2lip_gamma: 0.99
-wav2v_lr: 0.0001
-wav2v_gamma: 0.99
-sync_lr: 0.0003
+sync_lr: 0.0001
 sync_gamma: 0.99
 gpu: True
 wandb: False
@@ -25,13 +21,13 @@ train_list: "metadata/LRW_train_3090.txt"
 val_list: "metadata/LRW_val_3090.txt"
 test_list: "metadata/LRW_test_3090.txt"
 img_size: 224
-face_size: 128
+face_size: 160
 max_size: 0
 lip_emb: 256
 voice_emb: 256
 lmk_emb: 40
 n_mfcc: 0
 seq_len: 29
-triplet_margin: 1.0
+
 margin: 1.0
 stride: 2

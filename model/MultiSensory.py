@@ -7,7 +7,7 @@ import torchsnooper
 from utils.tensor_utils import FracPool
 
 
-@torchsnooper.snoop()
+# @torchsnooper.snoop()
 class Block2(nn.Module):
 	def __init__(self, input_feature, output_feature, kernel_size, stride=None, padding=None):
 		super(Block2, self).__init__()
@@ -74,7 +74,7 @@ class Block3(nn.Module):
 		return x
 
 
-@torchsnooper.snoop()
+# @torchsnooper.snoop()
 class MultiSensory(nn.Module):
 	def __init__(self, sound_rate=21000, image_fps=30, audio_channel=1):
 		super(MultiSensory, self).__init__()
@@ -117,14 +117,11 @@ class MultiSensory(nn.Module):
 
 		# 要将 (b, 256, 44, 1) 转换成 (b, 256, 16, 1)
 		# 将输入的音频和视频帧对应上
-		# ques：kernel_size要设置为多少？
-		# ques：torch的这个网络层可能很不好用
 		self.snd_net4 = nn.Sequential(
 			# (b, 256, 16, 1)
 			nn.Conv2d(256, 128, kernel_size=(3, 1), stride=(1, 1), padding=(1, 0)),  # sf/conv5_1
 			# (b, 128, 16, 1)
 			nn.BatchNorm2d(128),
-			nn.ReLU(),
 		)
 		# 取单声道，然后将维度修改为 (b, 128, 16, 1, 1)
 		# 再使用 torch.repeat 将维度修改为 (b, 128, 16, 28, 28)也就是和img的大小相同
@@ -194,6 +191,10 @@ class MultiSensory(nn.Module):
 		x = self.img_block1(x)
 		return x
 
+	def img_to_word(self, img_feature):
+		# img_feature = (b, 64, 16, 28, 28)
+		pass
+
 	def merge_forward(self, snd_feature, img_feature):
 		# snd_feature = (b, 256, 44, 1)
 		# img_feature = (b, 64, 16, 28, 28)
@@ -205,6 +206,7 @@ class MultiSensory(nn.Module):
 		snd_feature: torch.Tensor
 		snd_feature = snd_feature.repeat((1, 1, 1, img_feature.shape[-2], img_feature.shape[-1]))
 		# snd_feature = (b, 128, 16, 28, 28)
+		snd_feature = F.relu(snd_feature)
 
 		merge_feature = torch.cat((snd_feature, img_feature), dim=1)
 		# merge_feature = (b, 192, 16, 28, 28)

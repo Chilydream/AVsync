@@ -110,9 +110,9 @@ def main():
 		model_iter.to(run_device)
 		model_iter.train()
 
-	optim_ms = optim.Adam(model_ms.parameters(), lr=args.img2lip_lr, betas=(0.9, 0.999))
+	optim_ms = optim.Adam(model_ms.parameters(), lr=args.sync_lr, betas=(0.9, 0.999))
 	criterion_class = nn.CrossEntropyLoss()
-	sch_ms = optim.lr_scheduler.ExponentialLR(optim_ms, gamma=args.img2lip_gamma)
+	sch_ms = optim.lr_scheduler.ExponentialLR(optim_ms, gamma=args.sync_gamma)
 	tosave_list = [
 		'model_ms',
 		'optim_ms',
@@ -234,6 +234,7 @@ def main():
 			a_face = a_img
 			a_face.transpose_(2, 1)
 			a_lip = model_ms.img_forwad(a_face)
+			# a_lip = (b, 64, 16, 28, 28)
 
 			new_idx = get_rand_idx(args.batch_size)
 			a_wav = a_wav[new_idx, :]
@@ -311,4 +312,5 @@ def main():
 
 
 if __name__ == '__main__':
+	# with torch.autograd.set_detect_anomaly(True):
 	main()

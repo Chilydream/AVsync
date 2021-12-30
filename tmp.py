@@ -43,9 +43,7 @@ from third_party.yolo.yolo_models.yolo import Model as yolo_model
 from third_party.yolo.yolo_utils.util_yolo import face_detect
 from third_party.HRNet.utils_inference import get_model_by_name, get_batch_lmks
 
-a = torch.FloatTensor(size=(2, 3, 4))
-print(a.shape)
-b, c = torch.max(a[..., 0:2, :], dim=1, keepdim=True)
-print(b)
-print(c)
-print(b.shape)
+input_size = 44
+frac_ratio = 2.5
+a = list(map(lambda i: int(i*frac_ratio), range(int(input_size/frac_ratio))))
+print(a)
