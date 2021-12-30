@@ -9,7 +9,6 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torchvision.transforms as transforms
 import wandb
-from pytorch_metric_learning import losses
 import sys
 
 from model.MultiSensory import MultiSensory
