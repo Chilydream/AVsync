@@ -51,6 +51,8 @@ def lab_run(model_ms, data, args):
 
 	label_gt = torch.cat((label_gt_match, label_gt_mis), dim=0)
 	label_pred = torch.cat((label_pred_match, label_pred_mis), dim=0)
+	label_gt = label_gt.to(run_device)
+	label_pred = label_pred.to(run_device)
 	return label_gt, label_pred
 
 
@@ -62,7 +64,7 @@ def lrw_run(model_ms, data, args):
 	a_wid = a_wid.to(run_device)
 	# a_face = crop_face_batch_seq(model_yolo, a_img, args)
 	a_img.transpose_(2, 1)
-	a_lip = model_ms.img_forwad(a_img)
+	a_lip = model_ms.img_forward(a_img)
 
 	new_idx = get_rand_idx(args.batch_size)
 	a_wav = a_wav[new_idx, :]
@@ -87,6 +89,7 @@ def evaluate(model_ms, criterion_class, loader, args):
 		print('\tEvaluating Result:')
 		for data in loader:
 			label_gt, label_pred = lrw_run(model_ms, data, args)
+			# label_gt, label_pred = lab_run(model_ms, data, args)
 
 			# ======================计算唇部特征单词分类损失===========================
 			loss_class = criterion_class(label_pred, label_gt)
@@ -173,29 +176,29 @@ def main():
 	loader_timer = Meter('Time', 'time', ':3.0f', end='')
 	print('%sStart loading dataset%s'%('='*20, '='*20))
 	loader_timer.set_start_time(time.time())
-	# train_loader = LRWDataLoader(args.train_list, batch_size,
-	#                              num_workers=args.num_workers,
-	#                              n_mfcc=args.n_mfcc,
-	#                              resolution=args.img_size,
-	#                              seq_len=args.seq_len,
-	#                              is_train=True, max_size=0)
-	#
-	# valid_loader = LRWDataLoader(args.val_list, batch_size,
-	#                              num_workers=args.num_workers,
-	#                              n_mfcc=args.n_mfcc,
-	#                              resolution=args.img_size,
-	#                              seq_len=args.seq_len,
-	#                              is_train=True, max_size=0)
-	train_loader = LabDataLoader(args.train_list, batch_size,
+	train_loader = LRWDataLoader(args.train_list, batch_size,
 	                             num_workers=args.num_workers,
-	                             seq_len=args.seq_len,
+	                             n_mfcc=args.n_mfcc,
 	                             resolution=args.img_size,
+	                             seq_len=args.seq_len,
 	                             is_train=True, max_size=0)
-	valid_loader = LabDataLoader(args.val_list, batch_size,
+
+	valid_loader = LRWDataLoader(args.val_list, batch_size,
 	                             num_workers=args.num_workers,
-	                             seq_len=args.seq_len,
+	                             n_mfcc=args.n_mfcc,
 	                             resolution=args.img_size,
-	                             is_train=False, max_size=0)
+	                             seq_len=args.seq_len,
+	                             is_train=True, max_size=0)
+	# train_loader = LabDataLoader(args.train_list, batch_size,
+	#                              num_workers=args.num_workers,
+	#                              seq_len=args.seq_len,
+	#                              resolution=args.img_size,
+	#                              is_train=True, max_size=0)
+	# valid_loader = LabDataLoader(args.val_list, batch_size,
+	#                              num_workers=args.num_workers,
+	#                              seq_len=args.seq_len,
+	#                              resolution=args.img_size,
+	#                              is_train=False, max_size=0)
 	loader_timer.update(time.time())
 	print(f'Batch Num in Train Loader: {len(train_loader)}')
 	print(f'Finish loading dataset {loader_timer}')
@@ -258,8 +261,8 @@ def main():
 		batch_cnt = 0
 		epoch_timer.set_start_time(time.time())
 		for data in train_loader:
-			# label_gt, label_pred = lrw_run(model_ms, data, args)
-			label_gt, label_pred = lab_run(model_ms, data, args)
+			label_gt, label_pred = lrw_run(model_ms, data, args)
+			# label_gt, label_pred = lab_run(model_ms, data, args)
 
 			# ======================计算唇部特征单词分类损失===========================
 			loss_class = criterion_class(label_pred, label_gt)

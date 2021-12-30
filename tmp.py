@@ -43,7 +43,8 @@ from third_party.yolo.yolo_models.yolo import Model as yolo_model
 from third_party.yolo.yolo_utils.util_yolo import face_detect
 from third_party.HRNet.utils_inference import get_model_by_name, get_batch_lmks
 
-input_size = 44
+input_size = 18
 frac_ratio = 2.5
-a = list(map(lambda i: int(i*frac_ratio), range(int(input_size/frac_ratio))))
+print(input_size/frac_ratio)
+a = list(map(lambda i: int(i*frac_ratio), range(int(input_size/frac_ratio+0.5))))
 print(a)

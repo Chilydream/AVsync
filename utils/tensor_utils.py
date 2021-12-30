@@ -1,6 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from math import ceil
 
 
 class PadSquare(nn.Module):
@@ -46,7 +47,7 @@ class FracPool(nn.Module):
 
 	def forward(self, x):
 		input_size = x.shape[self.pool_dim]
-		new_indices = list(map(lambda i: int(i*self.frac_ratio), range(int(input_size/self.frac_ratio+.5))))
+		new_indices = list(map(lambda i: int(i*self.frac_ratio), range(ceil(input_size/self.frac_ratio))))
 		new_indices.append(input_size)
 		output_list = []
 		for i in range(len(new_indices)-1):

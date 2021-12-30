@@ -26,8 +26,13 @@ class LabDataset(Dataset):
 
 		with open(dataset_file) as fr:
 			for idx, line in enumerate(fr.readlines()):
-				is_talk, filename = line.strip().split('\t')
-				if is_talk != '0':
+				items = line.strip().split('\t')
+				if len(items)==2:
+					is_talk, filename = items
+					if is_talk != '0':
+						self.file_list.append(filename)
+				elif len(items)==1:
+					filename = items[0]
 					self.file_list.append(filename)
 		self.nfile = len(self.file_list)
 

@@ -181,7 +181,7 @@ class MultiSensory(nn.Module):
 		x = self.snd_block2(x)
 		return x
 
-	def img_forwad(self, imgs):
+	def img_forward(self, imgs):
 		# (b, c=3, img_len=63, 224, 224)
 		# 如果图片的值是 0~255就需要对图片进行归一化
 		imgs = (2./255)*imgs-1.0
@@ -195,6 +195,7 @@ class MultiSensory(nn.Module):
 		# img_feature = (b, 64, 16, 28, 28)
 		pass
 
+	# @torchsnooper.snoop()
 	def merge_forward(self, snd_feature, img_feature):
 		# snd_feature = (b, 256, 44, 1)
 		# img_feature = (b, 64, 16, 28, 28)
