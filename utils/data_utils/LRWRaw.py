@@ -60,10 +60,8 @@ class LRWDataset(Dataset):
 		mp4_name = self.file_list[item]
 		wav_name = mp4_name[:-3]+'wav'
 		lmk_name = mp4_name[:-3]+'lmk'
-		if self.n_mfcc == 0:
+		if self.n_mfcc <= 0:
 			a_wav = get_wav(filename=wav_name)
-		elif self.n_mfcc<0:
-			a_wav = item
 		else:
 			a_wav = get_mfcc(filename=wav_name,
 			                 n_mfcc=self.n_mfcc)

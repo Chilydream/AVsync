@@ -31,7 +31,6 @@ def get_frame_and_wav(filename, seq_len=29, video_fps=25, resolution=0):
 	start_time = np.random.uniform(0, whole_length-2-(seq_len-1)/video_fps)
 	video_file_clip = video_file_clip.to_RGB()
 	image_list = []
-	video_fps = video_fps
 	for i in range(seq_len):
 		image = video_file_clip.make_frame(start_time+i/video_fps)
 		if resolution != 0:

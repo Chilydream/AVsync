@@ -13,6 +13,7 @@ from pytorch_metric_learning import losses
 import sys
 
 from model.MultiSensory import MultiSensory
+from utils.data_utils.LabRaw import LabDataLoader
 
 sys.path.append('/home/tliu/fsx/project/AVsync/third_party/yolo')
 sys.path.append('/home/tliu/fsx/project/AVsync/third_party/HRNet')
@@ -33,53 +34,82 @@ from third_party.HRNet.utils_inference import get_model_by_name, get_batch_lmks
 from third_party.yolo.yolo_models.yolo import Model as yolo_model
 
 
-def evaluate(model_ms, criterion_class, loader, args):
+def lab_run(model_ms, data, args):
 	run_device = torch.device("cuda:0" if args.gpu else "cpu")
+	a_img, a_wav_match, a_wav_mis = data
+	a_img = a_img.to(run_device)
+	a_img.transpose_(2, 1)
+	a_wav_match = a_wav_match.to(run_device)
+	a_wav_mis = a_wav_mis.to(run_device)
+	label_gt_mis = torch.zeros(args.batch_size, dtype=torch.long)
+	label_gt_match = torch.ones(args.batch_size, dtype=torch.long)
+	a_lip = model_ms.img_forward(a_img)
+	a_snd_match = model_ms.snd_forward(a_wav_match)
+	a_snd_mis = model_ms.snd_forward(a_wav_mis)
+	label_pred_match = model_ms.merge_forward(snd_feature=a_snd_match, img_feature=a_lip)
+	label_pred_mis = model_ms.merge_forward(snd_feature=a_snd_mis, img_feature=a_lip)
 
-	val_loss_class = Meter('Class Loss', 'avg', ':.4f')
-	val_loss_final = Meter('Final Loss', 'avg', ':.4f')
-	val_acc_class = Meter('Class ACC', 'avg', ':.2f', '%,')
-	val_timer = Meter('Time', 'time', ':3.0f')
-	val_timer.set_start_time(time.time())
+	label_gt = torch.cat((label_gt_match, label_gt_mis), dim=0)
+	label_pred = torch.cat((label_pred_match, label_pred_mis), dim=0)
+	return label_gt, label_pred
 
-	print('\tEvaluating Result:')
-	for data in loader:
-		a_wav, a_img, a_wid = data
-		a_wav = a_wav.to(run_device)
-		a_img = a_img.to(run_device)
-		a_wid = a_wid.to(run_device)
-		# a_face = crop_face_batch_seq(model_yolo, a_img, args)
-		a_face = a_img
-		a_face.transpose_(2, 1)
-		a_lip = model_ms.img_forwad(a_face)
 
-		new_idx = get_rand_idx(args.batch_size)
-		a_wav = a_wav[new_idx, :]
-		a_voice = model_ms.snd_forward(a_wav)
+def lrw_run(model_ms, data, args):
+	run_device = torch.device("cuda:0" if args.gpu else "cpu")
+	a_wav, a_img, a_wid = data
+	a_wav = a_wav.to(run_device)
+	a_img = a_img.to(run_device)
+	a_wid = a_wid.to(run_device)
+	# a_face = crop_face_batch_seq(model_yolo, a_img, args)
+	a_img.transpose_(2, 1)
+	a_lip = model_ms.img_forwad(a_img)
 
-		label_gt = get_gt_label(a_wid, new_idx).to(run_device)
-		label_pred = model_ms.merge_forward(img_feature=a_lip, snd_feature=a_voice)
+	new_idx = get_rand_idx(args.batch_size)
+	a_wav = a_wav[new_idx, :]
+	a_voice = model_ms.snd_forward(a_wav)
 
-		# ======================计算唇部特征单词分类损失===========================
-		loss_class = criterion_class(label_pred, label_gt)
-		correct_num_class = torch.sum(torch.argmax(label_pred, dim=1) == label_gt).item()
+	label_gt = get_gt_label(a_wid, new_idx).to(run_device)
+	label_pred = model_ms.merge_forward(img_feature=a_lip, snd_feature=a_voice)
+	return label_gt, label_pred
 
-		loss_final = loss_class
 
-		# ==========计量更新============================
-		val_acc_class.update(correct_num_class*100/len(label_gt))
-		val_loss_class.update(loss_class.item())
-		val_loss_final.update(loss_final.item())
-		val_timer.update(time.time())
-		print(f'\r\tBatch:{val_timer.count:04d}/{len(loader):04d}  {val_timer}{val_loss_final}',
-		      f'{val_acc_class} EMA ACC: {val_acc_class.avg_ema:.2f}%, ',
-		      f'{val_loss_class}',
-		      sep='', end='     ')
+def evaluate(model_ms, criterion_class, loader, args):
+	with torch.no_grad():
+		model_ms.eval()
+		criterion_class.eval()
 
-	val_log = {'val_loss_class': val_loss_class.avg,
-	           'val_loss_final': val_loss_final.avg,
-	           'val_acc_class': val_acc_class.avg}
-	return val_log
+		val_loss_class = Meter('Class Loss', 'avg', ':.4f')
+		val_loss_final = Meter('Final Loss', 'avg', ':.4f')
+		val_acc_class = Meter('Class ACC', 'avg', ':.2f', '%,')
+		val_timer = Meter('Time', 'time', ':3.0f')
+		val_timer.set_start_time(time.time())
+
+		print('\tEvaluating Result:')
+		for data in loader:
+			label_gt, label_pred = lrw_run(model_ms, data, args)
+
+			# ======================计算唇部特征单词分类损失===========================
+			loss_class = criterion_class(label_pred, label_gt)
+			correct_num_class = torch.sum(torch.argmax(label_pred, dim=1) == label_gt).item()
+
+			loss_final = loss_class
+
+			# ==========计量更新============================
+			val_acc_class.update(correct_num_class*100/len(label_gt))
+			val_loss_class.update(loss_class.item())
+			val_loss_final.update(loss_final.item())
+			val_timer.update(time.time())
+			print(f'\r\tBatch:{val_timer.count:04d}/{len(loader):04d}  {val_timer}{val_loss_final}',
+			      f'{val_acc_class} EMA ACC: {val_acc_class.avg_ema:.2f}%, ',
+			      f'{val_loss_class}',
+			      sep='', end='     ')
+
+		model_ms.train()
+		criterion_class.train()
+		val_log = {'val_loss_class': val_loss_class.avg,
+		           'val_loss_final': val_loss_final.avg,
+		           'val_acc_class': val_acc_class.avg}
+		return val_log
 
 
 def main():
@@ -143,19 +173,29 @@ def main():
 	loader_timer = Meter('Time', 'time', ':3.0f', end='')
 	print('%sStart loading dataset%s'%('='*20, '='*20))
 	loader_timer.set_start_time(time.time())
-	train_loader = LRWDataLoader(args.train_list, batch_size,
+	# train_loader = LRWDataLoader(args.train_list, batch_size,
+	#                              num_workers=args.num_workers,
+	#                              n_mfcc=args.n_mfcc,
+	#                              resolution=args.img_size,
+	#                              seq_len=args.seq_len,
+	#                              is_train=True, max_size=0)
+	#
+	# valid_loader = LRWDataLoader(args.val_list, batch_size,
+	#                              num_workers=args.num_workers,
+	#                              n_mfcc=args.n_mfcc,
+	#                              resolution=args.img_size,
+	#                              seq_len=args.seq_len,
+	#                              is_train=True, max_size=0)
+	train_loader = LabDataLoader(args.train_list, batch_size,
 	                             num_workers=args.num_workers,
-	                             n_mfcc=args.n_mfcc,
-	                             resolution=args.img_size,
 	                             seq_len=args.seq_len,
+	                             resolution=args.img_size,
 	                             is_train=True, max_size=0)
-
-	valid_loader = LRWDataLoader(args.val_list, batch_size,
+	valid_loader = LabDataLoader(args.val_list, batch_size,
 	                             num_workers=args.num_workers,
-	                             n_mfcc=args.n_mfcc,
-	                             resolution=args.img_size,
 	                             seq_len=args.seq_len,
-	                             is_train=True, max_size=0)
+	                             resolution=args.img_size,
+	                             is_train=False, max_size=0)
 	loader_timer.update(time.time())
 	print(f'Batch Num in Train Loader: {len(train_loader)}')
 	print(f'Finish loading dataset {loader_timer}')
@@ -170,13 +210,9 @@ def main():
 		del model_ckpt
 		print(f'\n{"="*20}Start Evaluating{"="*20}')
 		if args.mode.lower() in ['valid', 'val', 'eval', 'evaluate']:
-			with torch.no_grad():
-				for model_iter in model_list:
-					model_iter.eval()
-				criterion_class.eval()
-				evaluate(model_ms,
-				         criterion_class,
-				         valid_loader, args)
+			evaluate(model_ms,
+			         criterion_class,
+			         valid_loader, args)
 		else:
 			del valid_loader
 			test_loader = LRWDataLoader(args.test_list, batch_size,
@@ -185,13 +221,9 @@ def main():
 			                            resolution=args.img_size,
 			                            seq_len=args.seq_len,
 			                            is_train=False, max_size=0)
-			with torch.no_grad():
-				for model_iter in model_list:
-					model_iter.eval()
-				criterion_class.eval()
-				evaluate(model_ms,
-				         criterion_class,
-				         test_loader, args)
+			evaluate(model_ms,
+			         criterion_class,
+			         test_loader, args)
 		print(f'\n\nFinish Evaluation\n\n')
 		return
 	elif args.mode.lower() in ['continue']:
@@ -226,22 +258,8 @@ def main():
 		batch_cnt = 0
 		epoch_timer.set_start_time(time.time())
 		for data in train_loader:
-			a_wav, a_img, a_wid = data
-			a_wav = a_wav.to(run_device)
-			a_img = a_img.to(run_device)
-			a_wid = a_wid.to(run_device)
-			# a_face = crop_face_batch_seq(model_yolo, a_img, args)
-			a_face = a_img
-			a_face.transpose_(2, 1)
-			a_lip = model_ms.img_forwad(a_face)
-			# a_lip = (b, 64, 16, 28, 28)
-
-			new_idx = get_rand_idx(args.batch_size)
-			a_wav = a_wav[new_idx, :]
-			a_voice = model_ms.snd_forward(a_wav)
-
-			label_gt = get_gt_label(a_wid, new_idx).to(run_device)
-			label_pred = model_ms.merge_forward(img_feature=a_lip, snd_feature=a_voice)
+			# label_gt, label_pred = lrw_run(model_ms, data, args)
+			label_gt, label_pred = lab_run(model_ms, data, args)
 
 			# ======================计算唇部特征单词分类损失===========================
 			loss_class = criterion_class(label_pred, label_gt)
@@ -288,18 +306,10 @@ def main():
 
 		# ===========================验证=======================
 		if args.valid_step>0 and (epoch+1)%args.valid_step == 0:
-			with torch.no_grad():
-				for model_iter in model_list:
-					model_iter.eval()
-				criterion_class.eval()
-				try:
-					log_dict.update(evaluate(model_ms,
-					                         criterion_class, valid_loader, args))
-				except:
-					print('Evaluating Error')
-				for model_iter in model_list:
-					model_iter.train()
-				criterion_class.train()
+			try:
+				log_dict.update(evaluate(model_ms,criterion_class, valid_loader, args))
+			except:
+				print('Evaluating Error')
 
 		if args.wandb:
 			wandb.log(log_dict)

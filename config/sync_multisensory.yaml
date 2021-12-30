@@ -4,7 +4,7 @@ pretrain_model: ~
 exp_dir: "exp_multi"
 exp_num: "000"
 save_step: 1
-valid_step: 0
+valid_step: 1
 
 epoch: 1000
 batch_size: 32
@@ -17,9 +17,12 @@ wandb: False
 class_lambda: 5.0
 triplet_lambda: 1.0
 
-train_list: "metadata/LRW_train_3090.txt"
-val_list: "metadata/LRW_val_3090.txt"
-test_list: "metadata/LRW_test_3090.txt"
+#train_list: "metadata/LRW_train_3090.txt"
+#val_list: "metadata/LRW_val_3090.txt"
+#test_list: "metadata/LRW_test_3090.txt"
+train_list: "metadata/lab_train_3090.txt"
+val_list:   "metadata/lab_val_3090.txt"
+test_list:  "metadata/lab_test_3090.txt"
 img_size: 224
 face_size: 160
 max_size: 0
