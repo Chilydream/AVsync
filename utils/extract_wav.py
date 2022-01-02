@@ -9,5 +9,7 @@ def extract_wav(mp4name):
 		#             outputs={wavname: '-vn -f wav'})
 		# ff.run()
 		os.system(f'ffmpeg -i {mp4name} -f wav -ac 1 -ar 16000 {wavname}')
+	else:
+		print('wav file already exists')
 
 

@@ -9,7 +9,7 @@ from queue import Queue
 from torch.utils.data.dataset import Dataset
 from torch.utils.data import DataLoader
 
-from utils.GetDataFromFile import get_mfcc, get_frame_tensor, get_wav, get_frame_and_wav
+from utils.GetDataFromFile import get_mfcc, get_frame_tensor, get_wav, get_frame_and_wav, get_frame_and_wav_cv2
 
 
 class LabDataset(Dataset):
@@ -27,21 +27,27 @@ class LabDataset(Dataset):
 		with open(dataset_file) as fr:
 			for idx, line in enumerate(fr.readlines()):
 				items = line.strip().split('\t')
-				if len(items)==2:
+				if len(items) == 2:
 					is_talk, filename = items
 					if is_talk != '0':
 						self.file_list.append(filename)
-				elif len(items)==1:
+				elif len(items) == 1:
 					filename = items[0]
-					self.file_list.append(filename)
+					if os.path.exists(filename):
+						self.file_list.append(filename)
 		self.nfile = len(self.file_list)
 
 	def __getitem__(self, item):
 		mp4_name = self.file_list[item]
-		img_tensor, wav_match, wav_mismatch = get_frame_and_wav(mp4_name,
-		                                                        seq_len=self.seq_len,
-		                                                        resolution=self.resolution)
-		return img_tensor, wav_match, wav_mismatch
+		wav_name = mp4_name[:-3]+'wav'
+		img_tensor, wav_tensor = get_frame_and_wav_cv2(mp4_name,
+		                                               seq_len=self.seq_len,
+		                                               resolution=self.resolution)
+		# img_tensor = get_frame_tensor(mp4_name, seq_len=self.seq_len, resolution=self.resolution)
+		# wav_tensor = get_wav(wav_name)
+		# wav_start = np.random.randint(0, 32000)
+		# wav_tensor = wav_tensor[wav_start:wav_start+int(16000*(self.seq_len/25))]
+		return img_tensor, wav_tensor
 
 	def __len__(self):
 		if self.max_size<=0:

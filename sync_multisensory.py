@@ -35,16 +35,18 @@ from third_party.yolo.yolo_models.yolo import Model as yolo_model
 
 def lab_run(model_ms, data, args):
 	run_device = torch.device("cuda:0" if args.gpu else "cpu")
-	a_img, a_wav_match, a_wav_mis = data
+	a_img, a_wav_match = data
 	a_img = a_img.to(run_device)
 	a_img.transpose_(2, 1)
 	a_wav_match = a_wav_match.to(run_device)
-	a_wav_mis = a_wav_mis.to(run_device)
 	label_gt_mis = torch.zeros(args.batch_size, dtype=torch.long)
 	label_gt_match = torch.ones(args.batch_size, dtype=torch.long)
 	a_lip = model_ms.img_forward(a_img)
 	a_snd_match = model_ms.snd_forward(a_wav_match)
-	a_snd_mis = model_ms.snd_forward(a_wav_mis)
+	# snd_feature = (b, 256, 18, 1)
+	new_idx = list(range(1, args.batch_size))
+	new_idx.append(0)
+	a_snd_mis = a_snd_match[new_idx, ...].squeeze(0)
 	label_pred_match = model_ms.merge_forward(snd_feature=a_snd_match, img_feature=a_lip)
 	label_pred_mis = model_ms.merge_forward(snd_feature=a_snd_mis, img_feature=a_lip)
 
@@ -87,8 +89,8 @@ def evaluate(model_ms, criterion_class, loader, args):
 
 		print('\tEvaluating Result:')
 		for data in loader:
-			label_gt, label_pred = lrw_run(model_ms, data, args)
-			# label_gt, label_pred = lab_run(model_ms, data, args)
+			# label_gt, label_pred = lrw_run(model_ms, data, args)
+			label_gt, label_pred = lab_run(model_ms, data, args)
 
 			# ======================计算唇部特征单词分类损失===========================
 			loss_class = criterion_class(label_pred, label_gt)
@@ -136,7 +138,7 @@ def main():
 	# ============================模型载入===============================
 	print('%sStart loading model%s'%('='*20, '='*20))
 
-	model_ms = MultiSensory(sound_rate=16000, image_fps=25)
+	model_ms = MultiSensory(sound_rate=16000, image_fps=15)
 	model_list = [model_ms]
 	for model_iter in model_list:
 		model_iter.to(run_device)
@@ -175,29 +177,29 @@ def main():
 	loader_timer = Meter('Time', 'time', ':3.0f', end='')
 	print('%sStart loading dataset%s'%('='*20, '='*20))
 	loader_timer.set_start_time(time.time())
-	train_loader = LRWDataLoader(args.train_list, batch_size,
-	                             num_workers=args.num_workers,
-	                             n_mfcc=args.n_mfcc,
-	                             resolution=args.img_size,
-	                             seq_len=args.seq_len,
-	                             is_train=True, max_size=0)
-
-	valid_loader = LRWDataLoader(args.val_list, batch_size,
-	                             num_workers=args.num_workers,
-	                             n_mfcc=args.n_mfcc,
-	                             resolution=args.img_size,
-	                             seq_len=args.seq_len,
-	                             is_train=True, max_size=0)
-	# train_loader = LabDataLoader(args.train_list, batch_size,
+	# train_loader = LRWDataLoader(args.train_list, batch_size,
 	#                              num_workers=args.num_workers,
-	#                              seq_len=args.seq_len,
+	#                              n_mfcc=args.n_mfcc,
 	#                              resolution=args.img_size,
+	#                              seq_len=args.seq_len,
 	#                              is_train=True, max_size=0)
-	# valid_loader = LabDataLoader(args.val_list, batch_size,
+	#
+	# valid_loader = LRWDataLoader(args.val_list, batch_size,
 	#                              num_workers=args.num_workers,
-	#                              seq_len=args.seq_len,
+	#                              n_mfcc=args.n_mfcc,
 	#                              resolution=args.img_size,
-	#                              is_train=False, max_size=0)
+	#                              seq_len=args.seq_len,
+	#                              is_train=True, max_size=0)
+	train_loader = LabDataLoader(args.train_list, batch_size,
+	                             num_workers=args.num_workers,
+	                             seq_len=args.seq_len,
+	                             resolution=args.img_size,
+	                             is_train=True, max_size=0)
+	valid_loader = LabDataLoader(args.val_list, batch_size,
+	                             num_workers=args.num_workers,
+	                             seq_len=args.seq_len,
+	                             resolution=args.img_size,
+	                             is_train=False, max_size=0)
 	loader_timer.update(time.time())
 	print(f'Batch Num in Train Loader: {len(train_loader)}')
 	print(f'Finish loading dataset {loader_timer}')
@@ -245,6 +247,7 @@ def main():
 				if item_str in model_ckpt.keys():
 					item_model = locals()[item_str]
 					item_model.load_state_dict(model_ckpt[item_str])
+					print(f'已加载预训练模型{item_str}')
 	else:
 		raise Exception(f"未定义训练模式{args.mode}")
 
@@ -260,8 +263,8 @@ def main():
 		batch_cnt = 0
 		epoch_timer.set_start_time(time.time())
 		for data in train_loader:
-			label_gt, label_pred = lrw_run(model_ms, data, args)
-			# label_gt, label_pred = lab_run(model_ms, data, args)
+			# label_gt, label_pred = lrw_run(model_ms, data, args)
+			label_gt, label_pred = lab_run(model_ms, data, args)
 
 			# ======================计算唇部特征单词分类损失===========================
 			loss_class = criterion_class(label_pred, label_gt)
@@ -309,7 +312,7 @@ def main():
 		# ===========================验证=======================
 		if args.valid_step>0 and (epoch+1)%args.valid_step == 0:
 			try:
-				log_dict.update(evaluate(model_ms,criterion_class, valid_loader, args))
+				log_dict.update(evaluate(model_ms, criterion_class, valid_loader, args))
 			except:
 				print('Evaluating Error')
 
