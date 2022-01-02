@@ -164,9 +164,6 @@ class Model(nn.Module):
 				dt.append((time_synchronized()-t)*100)
 				print('%10.1f%10.0f%10.1fms %-40s'%(o, m.np, dt[-1], m.type))
 
-			print(len(x))
-			print(x[0].shape)
-			# todo: 删掉 print语句
 			x = m(x)  # run
 			y.append(x if m.i in self.save else None)  # save output
 
