@@ -68,6 +68,8 @@ def get_frame_and_wav(filename, seq_len=29, video_fps=25, resolution=0):
 
 
 def get_frame_and_wav_cv2(filename, seq_len=15, tgt_fps=15, resolution=0):
+	if isinstance(resolution, int):
+		resolution = (resolution, resolution)
 	cap = cv2.VideoCapture(filename)
 	src_fps = cap.get(cv2.CAP_PROP_FPS)
 	src_fps = int(src_fps+0.5)
@@ -88,9 +90,9 @@ def get_frame_and_wav_cv2(filename, seq_len=15, tgt_fps=15, resolution=0):
 		if image is None:
 			break
 
-		if resolution != 0:
+		if resolution != (0, 0):
 			image = make_image_square(image)
-			image = cv2.resize(image, (resolution, resolution))
+			image = cv2.resize(image, resolution)
 		image_list.append(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
 	if len(image_list)<seq_len:

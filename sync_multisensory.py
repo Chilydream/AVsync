@@ -17,7 +17,7 @@ from utils.data_utils.LabRaw import LabDataLoader
 sys.path.append('/home/tliu/fsx/project/AVsync/third_party/yolo')
 sys.path.append('/home/tliu/fsx/project/AVsync/third_party/HRNet')
 
-from utils.crop_face import crop_face_batch_seq
+from utils.crop_face import crop_face_batch_seq, crop_face_seq
 from utils.accuracy import get_gt_label, get_rand_idx
 from utils.data_utils.LRWRaw import LRWDataLoader
 from model.Lip2TModel import Lip2T_fc_Model
@@ -44,6 +44,30 @@ def lab_run(model_ms, data, args):
 	a_lip = model_ms.img_forward(a_img)
 	a_snd_match = model_ms.snd_forward(a_wav_match)
 	# snd_feature = (b, 256, 18, 1)
+	new_idx = list(range(1, args.batch_size))
+	new_idx.append(0)
+	a_snd_mis = a_snd_match[new_idx, ...].squeeze(0)
+	label_pred_match = model_ms.merge_forward(snd_feature=a_snd_match, img_feature=a_lip)
+	label_pred_mis = model_ms.merge_forward(snd_feature=a_snd_mis, img_feature=a_lip)
+
+	label_gt = torch.cat((label_gt_match, label_gt_mis), dim=0)
+	label_pred = torch.cat((label_pred_match, label_pred_mis), dim=0)
+	label_gt = label_gt.to(run_device)
+	label_pred = label_pred.to(run_device)
+	return label_gt, label_pred
+
+
+def lab_crop_run(model_ms, model_yolo, data, args):
+	run_device = torch.device("cuda:0" if args.gpu else "cpu")
+	a_img, a_wav_match = data
+	a_img = a_img.to(run_device)
+	a_face = crop_face_batch_seq(model_yolo, a_img, args.face_size, run_device)
+	a_face.transpose_(2, 1)
+	a_wav_match = a_wav_match.to(run_device)
+	label_gt_mis = torch.zeros(args.batch_size, dtype=torch.long)
+	label_gt_match = torch.ones(args.batch_size, dtype=torch.long)
+	a_lip = model_ms.img_forward(a_face)
+	a_snd_match = model_ms.snd_forward(a_wav_match)
 	new_idx = list(range(1, args.batch_size))
 	new_idx.append(0)
 	a_snd_mis = a_snd_match[new_idx, ...].squeeze(0)
@@ -137,6 +161,9 @@ def main():
 
 	# ============================模型载入===============================
 	print('%sStart loading model%s'%('='*20, '='*20))
+	model_yolo = yolo_model(cfg='config/yolov5s.yaml').float().fuse().eval()
+	model_yolo.load_state_dict(torch.load('pretrain_model/raw_yolov5s.pt'))
+	model_yolo.to(run_device)
 
 	model_ms = MultiSensory(sound_rate=16000, image_fps=15)
 	model_list = [model_ms]
@@ -264,7 +291,8 @@ def main():
 		epoch_timer.set_start_time(time.time())
 		for data in train_loader:
 			# label_gt, label_pred = lrw_run(model_ms, data, args)
-			label_gt, label_pred = lab_run(model_ms, data, args)
+			# label_gt, label_pred = lab_run(model_ms, data, args)
+			label_gt, label_pred = lab_crop_run(model_ms, model_yolo, data, args)
 
 			# ======================计算唇部特征单词分类损失===========================
 			loss_class = criterion_class(label_pred, label_gt)

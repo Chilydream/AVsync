@@ -25,7 +25,7 @@ class TrainOptions:
 		elif isinstance(train_config, str):
 			a = yaml.load(open(train_config, 'r'), Loader=yaml.FullLoader)
 			for key, value in a.items():
-				arg_type = type(value) if type(value) is not None else str
+				arg_type = type(value) if value is not None else str
 				default_value = value
 				if arg_type==bool:
 					arg_type=str2bool

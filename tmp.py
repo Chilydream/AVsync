@@ -45,10 +45,5 @@ from third_party.HRNet.utils_inference import get_model_by_name, get_batch_lmks
 
 args = TrainOptions('config/sync_multisensory.yaml').parse()
 
-src_fps = 25
-tgt_fps = 30
-raw_frame_num = 25
-frac_ratio = src_fps/tgt_fps
-new_idx = list(map(lambda i: int(i*frac_ratio), range(math.ceil(raw_frame_num/frac_ratio))))
-print(new_idx)
-print(len(new_idx))
+print(args.img_size)
+print(type(args.img_size))
