@@ -30,7 +30,7 @@ test_list:    "metadata/avspeech_test.txt"
 #val_list:   "metadata/lab_val_3090.txt"
 #test_list:  "metadata/lab_test_3090.txt"
 #img_size: [1280,720]
-img_size: 720
+img_size: 1024
 face_size: 160
 max_size: 0
 lip_emb: 256
