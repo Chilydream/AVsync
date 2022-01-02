@@ -70,6 +70,8 @@ def face_detect(model_yolo, img: torch.Tensor):
 	if img.ndimension() == 3:
 		img = img.unsqueeze(0)
 
+	w = img.shape[2]
+	h = img.shape[3]
 	# Inference
 	pred = model_yolo(img)[0]
 	# pred = torch.Size([29, 4032, 16])
@@ -81,7 +83,7 @@ def face_detect(model_yolo, img: torch.Tensor):
 	for i in range(len(pred)):
 		# pred是否按照置信度排序了？需不需要计算图片大小做一次筛选？
 		if pred[i] is None or len(pred[i])==0:
-			bbox_seq.append([0, 0, 255, 255])
+			bbox_seq.append([0, 0, w-1, h-1])
 			# # 如果找不到人脸，就选择将整张图片、0置信度作为bbox返回
 			# print('\nERROR: no face found, appending whole image\n')
 		else:
