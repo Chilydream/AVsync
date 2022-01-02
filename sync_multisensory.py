@@ -61,9 +61,7 @@ def lab_crop_run(model_ms, model_yolo, data, args):
 	run_device = torch.device("cuda:0" if args.gpu else "cpu")
 	a_img, a_wav_match = data
 	a_img = a_img.to(run_device)
-	print(a_img.shape)
 	a_face = crop_face_batch_seq(model_yolo, a_img, args.face_size, run_device)
-	print(a_face.shape)
 	a_face.transpose_(2, 1)
 	a_wav_match = a_wav_match.to(run_device)
 	label_gt_mis = torch.zeros(args.batch_size, dtype=torch.long)
