@@ -21,8 +21,10 @@ def main():
 		filename = line.strip()
 		cap = cv2.VideoCapture(filename)
 		fps = cap.get(cv2.CAP_PROP_FPS)
+		h = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
+		w = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
 		if fps<15:
-			print(fps, filename)
+			print(fps, filename, w, h)
 		cap.release()
 
 

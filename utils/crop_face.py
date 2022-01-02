@@ -21,7 +21,7 @@ def crop_face_batch_seq(model_yolo, img_batch, face_size, run_device='cuda:0'):
 	return face_batch
 
 
-def crop_face_seq(model_yolo, img_seq, face_size, run_device='cuda'):
+def crop_face_seq(model_yolo, img_seq, face_size, run_device='cuda:0'):
 	if isinstance(face_size, int):
 		face_size = (face_size, face_size)
 	if isinstance(run_device, str):
