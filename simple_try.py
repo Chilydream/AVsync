@@ -6,21 +6,24 @@ import torch
 import sys
 
 import tqdm
+import cv2
 
 sys.path.append('./third_party/yolo')
-from utils.GetDataFromFile import get_frame_tensor, get_frame_and_wav
+from utils.GetDataFromFile import get_frame_tensor
 from utils.crop_face import crop_face_seq
 from third_party.yolo.yolo_models.yolo import Model as yolo_model
 
 
 def main():
-	a = torch.rand((32, 256, 19, 1))
-	print(a.shape)
-	b = list(range(1, 32))
-	b.append(0)
-	print(b)
-	c = a[b, ...]
-	print(c.shape)
+	ftrain = open('metadata/avspeech_train.txt', 'r')
+	lines = ftrain.readlines()
+	for line in lines:
+		filename = line.strip()
+		cap = cv2.VideoCapture(filename)
+		fps = cap.get(cv2.CAP_PROP_FPS)
+		if fps<15:
+			print(fps, filename)
+		cap.release()
 
 
 if __name__ == '__main__':
