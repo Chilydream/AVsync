@@ -12,22 +12,22 @@ class Block2(nn.Module):
 	def __init__(self, input_feature, output_feature, kernel_size, stride=None, padding=None):
 		super(Block2, self).__init__()
 		stride = stride if stride is not None else kernel_size
-		padding = padding if padding is not None else list(map(lambda x: max(0, int(x/2)), kernel_size))
+		padding = padding if padding is not None else list(map(lambda x: max(0, int(x / 2)), kernel_size))
 
 		self.res = None
 		if stride != 1 and input_feature == output_feature:
 			self.res = nn.MaxPool2d(kernel_size=1, stride=stride)
 		elif stride != 1:
 			self.res = nn.Conv2d(in_channels=input_feature, out_channels=output_feature,
-			                     kernel_size=1, stride=stride)
+								 kernel_size=1, stride=stride)
 
 		self.model0 = nn.Sequential(
 			nn.Conv2d(in_channels=input_feature, out_channels=output_feature,
-			          kernel_size=kernel_size, stride=stride, padding=padding),
+					  kernel_size=kernel_size, stride=stride, padding=padding),
 			nn.BatchNorm2d(output_feature),
 			nn.ReLU(True),
 			nn.Conv2d(in_channels=output_feature, out_channels=output_feature,
-			          kernel_size=kernel_size, stride=1, padding=padding),
+					  kernel_size=kernel_size, stride=1, padding=padding),
 		)
 		self.model1 = nn.Sequential(
 			nn.BatchNorm2d(output_feature),
@@ -37,7 +37,7 @@ class Block2(nn.Module):
 	def forward(self, x):
 		res = x if self.res is None else self.res(x)
 		x = self.model0(x)
-		x = self.model1(x+res)
+		x = self.model1(x + res)
 		return x
 
 
@@ -45,22 +45,22 @@ class Block3(nn.Module):
 	def __init__(self, input_feature, output_feature, kernel_size, stride=None, padding=None):
 		super(Block3, self).__init__()
 		stride = stride if stride is not None else kernel_size
-		padding = padding if padding is not None else list(map(lambda x: max(0, int(x/2)), kernel_size))
+		padding = padding if padding is not None else list(map(lambda x: max(0, int(x / 2)), kernel_size))
 
 		self.res = None
 		if stride != 1 and input_feature == output_feature:
 			self.res = nn.MaxPool3d(kernel_size=1, stride=stride)
 		elif stride != 1 or input_feature != output_feature:
 			self.res = nn.Conv3d(in_channels=input_feature, out_channels=output_feature,
-			                     kernel_size=1, stride=stride)
+								 kernel_size=1, stride=stride)
 
 		self.model0 = nn.Sequential(
 			nn.Conv3d(in_channels=input_feature, out_channels=output_feature,
-			          kernel_size=kernel_size, stride=stride, padding=padding),
+					  kernel_size=kernel_size, stride=stride, padding=padding),
 			nn.BatchNorm3d(output_feature),
 			nn.ReLU(True),
 			nn.Conv3d(in_channels=output_feature, out_channels=output_feature,
-			          kernel_size=kernel_size, stride=1, padding=padding),
+					  kernel_size=kernel_size, stride=1, padding=padding),
 		)
 		self.model1 = nn.Sequential(
 			nn.BatchNorm3d(output_feature),
@@ -70,7 +70,7 @@ class Block3(nn.Module):
 	def forward(self, x):
 		res = x if self.res is None else self.res(x)
 		x = self.model0(x)
-		x = self.model1(x+res)
+		x = self.model1(x + res)
 		return x
 
 
@@ -113,7 +113,7 @@ class MultiSensory(nn.Module):
 		# snd_num = rate/1024
 		# self.frac_pool = nn.FractionalMaxPool2d(kernel_size=3, output_ratio=(image_fps*256/sound_rate))
 		# self.frac_pool = nn.FractionalMaxPool2d(kernel_size=3, output_size=(8, 1))
-		self.frac_pool = FracPool(sound_rate/image_fps/256)
+		self.frac_pool = FracPool(sound_rate / image_fps / 256)
 
 		# 要将 (b, 256, 44, 1) 转换成 (b, 256, 16, 1)
 		# 将输入的音频和视频帧对应上
@@ -168,7 +168,7 @@ class MultiSensory(nn.Module):
 	def snd_forward(self, snds):
 		# (b, c=2, snd_len=44144, 1)
 		snd_scale = 255
-		snds = torch.sign(snds)*(torch.log(1+snd_scale*torch.abs(snds))/np.log(1+snd_scale))
+		snds = torch.sign(snds) * (torch.log(1 + snd_scale * torch.abs(snds)) / np.log(1 + snd_scale))
 		if snds.dim() == 2:
 			snds.unsqueeze_(1)
 			snds.unsqueeze_(-1)
@@ -184,7 +184,7 @@ class MultiSensory(nn.Module):
 	def img_forward(self, imgs):
 		# (b, c=3, img_len=63, 224, 224)
 		# 如果图片的值是 0~255就需要对图片进行归一化
-		imgs = (2./255)*imgs-1.0
+		imgs = (2. / 255) * imgs - 1.0
 
 		x = self.img_pre(imgs)
 		x = self.img_block0(x)
@@ -215,7 +215,7 @@ class MultiSensory(nn.Module):
 		# merge_res = (b, 128, 16, 28, 28)
 
 		merge_feature = self.merge_conv(merge_feature)
-		merge_feature = self.merge_bn(merge_feature+merge_res)
+		merge_feature = self.merge_bn(merge_feature + merge_res)
 		merge_feature = self.merge_block0(merge_feature)
 		merge_feature = self.merge_block1(merge_feature)
 		merge_feature = self.merge_block2(merge_feature)
