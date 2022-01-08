@@ -1,32 +1,20 @@
-import multiprocessing as mp
 import os
-import time
+import glob
 import shutil
-import torch
-import sys
 
-import tqdm
-import cv2
+data_dir = '/home/tliu/fsx/dataset/avspeech'
+mp4list = glob.glob(os.path.join(data_dir, '*.mp4'))
+print(len(mp4list))
 
-sys.path.append('./third_party/yolo')
-from utils.GetDataFromFile import get_frame_tensor
-from utils.crop_face import crop_face_seq
-from third_party.yolo.yolo_models.yolo import Model as yolo_model
+ftrain = open('metadata/avspeech_train.txt', 'w')
+fval = open('metadata/avspeech_val.txt', 'w')
+ftest = open('metadata/avspeech_test.txt', 'w')
 
-
-def main():
-	ftrain = open('metadata/avspeech_train.txt', 'r')
-	lines = ftrain.readlines()
-	for line in lines:
-		filename = line.strip()
-		cap = cv2.VideoCapture(filename)
-		fps = cap.get(cv2.CAP_PROP_FPS)
-		h = cap.get(cv2.CAP_PROP_FRAME_HEIGHT)
-		w = cap.get(cv2.CAP_PROP_FRAME_WIDTH)
-		if fps<15:
-			print(fps, filename, w, h)
-		cap.release()
-
-
-if __name__ == '__main__':
-	main()
+for idx, mp4name in enumerate(mp4list):
+	if idx%10<8:
+		fw = ftrain
+	elif idx%10==8:
+		fw = fval
+	else:
+		fw = ftest
+	print(mp4name, file=fw)
