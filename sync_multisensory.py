@@ -12,6 +12,7 @@ import wandb
 import sys
 
 from model.MultiSensory import MultiSensory
+from utils.data_utils.LRWFace import LRWFaceDataLoader
 from utils.data_utils.LabRaw import LabDataLoader
 
 sys.path.append('/home/tliu/fsx/project/AVsync/third_party/yolo')
@@ -87,9 +88,27 @@ def lrw_run(model_ms, data, args):
 	a_wav = a_wav.to(run_device)
 	a_img = a_img.to(run_device)
 	a_wid = a_wid.to(run_device)
-	# a_face = crop_face_batch_seq(model_yolo, a_img, args)
 	a_img.transpose_(2, 1)
 	a_lip = model_ms.img_forward(a_img)
+
+	new_idx = get_rand_idx(args.batch_size)
+	a_wav = a_wav[new_idx, :]
+	a_voice = model_ms.snd_forward(a_wav)
+
+	label_gt = get_gt_label(a_wid, new_idx).to(run_device)
+	label_pred = model_ms.merge_forward(img_feature=a_lip, snd_feature=a_voice)
+	return label_gt, label_pred
+
+
+def lrw_crop_run(model_ms, model_yolo, data, args):
+	run_device = torch.device("cuda:0" if args.gpu else "cpu")
+	a_wav, a_img, a_wid = data
+	a_wav = a_wav.to(run_device)
+	a_img = a_img.to(run_device)
+	a_wid = a_wid.to(run_device)
+	a_face = crop_face_batch_seq(model_yolo, a_img, args.face_size, run_device)
+	a_face.transpose_(2, 1)
+	a_lip = model_ms.img_forward(a_face)
 
 	new_idx = get_rand_idx(args.batch_size)
 	a_wav = a_wav[new_idx, :]
@@ -161,11 +180,11 @@ def main():
 
 	# ============================模型载入===============================
 	print('%sStart loading model%s'%('='*20, '='*20))
-	model_yolo = yolo_model(cfg='config/yolov5s.yaml').float().fuse().eval()
-	model_yolo.load_state_dict(torch.load('pretrain_model/raw_yolov5s.pt'))
-	model_yolo.to(run_device)
+	# model_yolo = yolo_model(cfg='config/yolov5s.yaml').float().fuse().eval()
+	# model_yolo.load_state_dict(torch.load('pretrain_model/raw_yolov5s.pt'))
+	# model_yolo.to(run_device)
 
-	model_ms = MultiSensory(sound_rate=16000, image_fps=15)
+	model_ms = MultiSensory(sound_rate=16000, image_fps=25)
 	model_list = [model_ms]
 	for model_iter in model_list:
 		model_iter.to(run_device)
@@ -217,16 +236,29 @@ def main():
 	#                              resolution=args.img_size,
 	#                              seq_len=args.seq_len,
 	#                              is_train=True, max_size=0)
-	train_loader = LabDataLoader(args.train_list, batch_size,
-	                             num_workers=args.num_workers,
-	                             seq_len=args.seq_len,
-	                             resolution=args.img_size,
-	                             is_train=True, max_size=0)
-	valid_loader = LabDataLoader(args.val_list, batch_size,
-	                             num_workers=args.num_workers,
-	                             seq_len=args.seq_len,
-	                             resolution=args.img_size,
-	                             is_train=False, max_size=0)
+	train_loader = LRWFaceDataLoader(args.train_list, batch_size,
+	                                 num_workers=args.num_workers,
+	                                 n_mfcc=args.n_mfcc,
+	                                 resolution=args.face_size,
+	                                 seq_len=args.seq_len,
+	                                 is_train=True, max_size=0)
+
+	valid_loader = LRWFaceDataLoader(args.val_list, batch_size,
+	                                 num_workers=args.num_workers,
+	                                 n_mfcc=args.n_mfcc,
+	                                 resolution=args.face_size,
+	                                 seq_len=args.seq_len,
+	                                 is_train=True, max_size=0)
+	# train_loader = LabDataLoader(args.train_list, batch_size,
+	#                              num_workers=args.num_workers,
+	#                              seq_len=args.seq_len,
+	#                              resolution=args.img_size,
+	#                              is_train=True, max_size=0)
+	# valid_loader = LabDataLoader(args.val_list, batch_size,
+	#                              num_workers=args.num_workers,
+	#                              seq_len=args.seq_len,
+	#                              resolution=args.img_size,
+	#                              is_train=False, max_size=0)
 	loader_timer.update(time.time())
 	print(f'Batch Num in Train Loader: {len(train_loader)}')
 	print(f'Finish loading dataset {loader_timer}')
@@ -290,9 +322,10 @@ def main():
 		batch_cnt = 0
 		epoch_timer.set_start_time(time.time())
 		for data in train_loader:
-			# label_gt, label_pred = lrw_run(model_ms, data, args)
+			label_gt, label_pred = lrw_run(model_ms, data, args)
+			# label_gt, label_pred = lrw_crop_run(model_ms, model_yolo, data, args)
 			# label_gt, label_pred = lab_run(model_ms, data, args)
-			label_gt, label_pred = lab_crop_run(model_ms, model_yolo, data, args)
+			# label_gt, label_pred = lab_crop_run(model_ms, model_yolo, data, args)
 
 			# ======================计算唇部特征单词分类损失===========================
 			loss_class = criterion_class(label_pred, label_gt)
@@ -356,4 +389,5 @@ def main():
 
 if __name__ == '__main__':
 	# with torch.autograd.set_detect_anomaly(True):
+	torch.multiprocessing.set_start_method('spawn')
 	main()

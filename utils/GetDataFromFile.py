@@ -154,8 +154,9 @@ def get_frame_tensor(filename, seq_len=0, resolution=0, tgt_fps=25):
 		src_fps = tgt_fps
 	# cap.set(cv2.CAP_PROP_FPS, 25)
 	if seq_len>0:
-		# video_len = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-		start_frame = np.random.randint(0, 2*tgt_fps)
+		video_len = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+		start_frame = np.random.randint(0, video_len-seq_len)
+		# start_frame = np.random.randint(0, 2*tgt_fps)
 		cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
 
 	image_list = []

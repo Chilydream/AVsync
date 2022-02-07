@@ -9,24 +9,27 @@ def get_LRW_meta(metafile, mode):
 	# metafile = 'metadata/LRW_test_3090.txt'
 	# mode = 'test'
 	assert mode in ('train', 'val', 'test')
-	dataset_dir = '/home/tliu/fsx/dataset/LRW'
+	dataset_dir = '/hdd1/dataset/LRW'
 	word_list = []
 	for filename in os.listdir(dataset_dir):
 		if os.path.isdir(os.path.join(dataset_dir, filename)):
 			word_list.append(filename)
 	word_list.sort()
 	with open(metafile, 'w') as fw:
-		for word in tqdm.tqdm(word_list):
-			end_dir = os.path.join(dataset_dir, word, mode)
-			video_list = glob.glob(os.path.join(end_dir, '*.mp4'))
-			video_list.sort()
-			for filename in video_list:
+		for idx, word in enumerate(word_list):
+			if idx%10<8 and mode!='train':
+				continue
+			elif idx%10==8 and mode!='val':
+				continue
+			elif idx%10==9 and mode!='test':
+				continue
+			end_dir = os.path.join(dataset_dir, word, 'train')
+			face_list = glob.glob(os.path.join(end_dir, '*.face'))
+			face_list.sort()
+			for filename in face_list:
 				new_filename = filename.replace("\\", "/")
-				wavname = new_filename.replace('mp4', 'wav')
-				if not os.path.exists(wavname):
-					print(f'{wavname} not exists, extracting')
-					extract_wav(filename)
-				print(f'{word}\t{new_filename}', file=fw)
+				mp4name = new_filename.replace('/hdd1', '/home/tliu/fsx').replace('face', 'mp4')
+				print(f'{word}\t{mp4name}', file=fw)
 
 
 def get_Lab_meta(metafile, mode):
@@ -96,4 +99,6 @@ def word_split():
 
 
 if __name__ == '__main__':
-	word_split()
+	get_LRW_meta('metadata/LRW_train_face.txt', 'train')
+	get_LRW_meta('metadata/LRW_val_face.txt', 'val')
+	get_LRW_meta('metadata/LRW_test_face.txt', 'test')

@@ -2,6 +2,7 @@ import argparse
 import math
 import os
 import platform
+import shutil
 import time
 
 import librosa
@@ -43,7 +44,4 @@ from third_party.yolo.yolo_models.yolo import Model as yolo_model
 from third_party.yolo.yolo_utils.util_yolo import face_detect
 from third_party.HRNet.utils_inference import get_model_by_name, get_batch_lmks
 
-args = TrainOptions('config/sync_multisensory.yaml').parse()
-
-print(args.img_size)
-print(type(args.img_size))
+mp4list = glob.glob('/home/tliu/fsx/dataset/LRS2/*/*.mp4')
