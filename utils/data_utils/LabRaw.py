@@ -41,7 +41,7 @@ class LabDataset(Dataset):
 		mp4_name = self.file_list[item]
 		wav_name = mp4_name[:-3]+'wav'
 		img_tensor, wav_tensor = get_frame_and_wav_cv2(mp4_name,
-		                                               seq_len=self.seq_len,
+		                                               tgt_frame_num=self.seq_len,
 		                                               resolution=self.resolution)
 		# img_tensor = get_frame_tensor(mp4_name, seq_len=self.seq_len, resolution=self.resolution)
 		# wav_tensor = get_wav(wav_name)

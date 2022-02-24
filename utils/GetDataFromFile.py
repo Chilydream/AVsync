@@ -67,24 +67,27 @@ def get_frame_and_wav(filename, seq_len=29, video_fps=25, resolution=0):
 	return im_tensor, wav_match
 
 
-def get_frame_and_wav_cv2(filename, seq_len=15, tgt_fps=15, resolution=0):
+def get_frame_and_wav_cv2(filename, tgt_frame_num=25, tgt_fps=25, resolution=0, wav_hz=16000, total_frame=0):
 	if isinstance(resolution, int):
 		resolution = (resolution, resolution)
 	cap = cv2.VideoCapture(filename)
 	src_fps = cap.get(cv2.CAP_PROP_FPS)
-	src_fps = int(src_fps+0.5)
+	src_fps = round(src_fps)
 
-	start_frame = np.random.randint(0, tgt_fps)
-	# start_frame = 0
+	if total_frame==0:
+		total_frame = cap.get(cv2.CAP_PROP_FRAME_COUNT)
+		# 通过cv2获取的总帧数很可能不准，如果有办法确定，最好在参数中说明是
+
+	start_frame = np.random.randint(0, total_frame-tgt_frame_num-5)
 	cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
-	start_time = start_frame*1.0/tgt_fps
+	start_time = start_frame*1.0/src_fps
 
 	image_list = []
 	image_cnt = 0
-	raw_frame_num = int(seq_len*src_fps/tgt_fps)
+	src_frame_num = int(tgt_frame_num*src_fps/tgt_fps)
 	while True:
 		image_cnt += 1
-		if image_cnt>raw_frame_num != 0:
+		if image_cnt>src_frame_num != 0:
 			break
 		ret, image = cap.read()
 		if image is None:
@@ -95,23 +98,23 @@ def get_frame_and_wav_cv2(filename, seq_len=15, tgt_fps=15, resolution=0):
 			image = cv2.resize(image, resolution)
 		image_list.append(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
-	if len(image_list)<seq_len:
-		print(f'{filename} len(image_list){len(image_list)}, raw_num{raw_frame_num}, {src_fps}')
+	if len(image_list)<tgt_frame_num:
+		print(f'{filename} len(image_list){len(image_list)}, raw_num{src_frame_num}, {src_fps}')
 	cap.release()
 	im = np.stack(image_list, axis=3)
 	# stack操作后 im的形状是（256,256,3,29）
 	im = np.transpose(im, (3, 2, 0, 1))
 	# im的形状是（29,3,256,256）
 	im_tensor = torch.FloatTensor(im)
-	if raw_frame_num != seq_len and seq_len != 0:
+	if src_frame_num != tgt_frame_num and tgt_frame_num != 0:
 		frac_ratio = src_fps/tgt_fps
-		new_idx = list(map(lambda i: int(i*frac_ratio), range(seq_len)))
+		new_idx = list(map(lambda i: int(i*frac_ratio), range(tgt_frame_num)))
 		im_tensor = im_tensor[new_idx, ...]
 	wavname = filename[:-3]+'wav'
 	wav_array = get_wav(wavname)
 	# wav_offset = 1
-	wav_start = int(start_time*16000)
-	wav_tensor = wav_array[wav_start:wav_start+int(seq_len*16000/tgt_fps)]
+	wav_start = int(start_time*wav_hz)
+	wav_tensor = wav_array[wav_start:wav_start+int(tgt_frame_num*wav_hz/tgt_fps)]
 	wav_tensor = torch.FloatTensor(wav_tensor)
 	return im_tensor, wav_tensor
 

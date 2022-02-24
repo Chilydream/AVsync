@@ -44,4 +44,20 @@ from third_party.yolo.yolo_models.yolo import Model as yolo_model
 from third_party.yolo.yolo_utils.util_yolo import face_detect
 from third_party.HRNet.utils_inference import get_model_by_name, get_batch_lmks
 
-mp4list = glob.glob('/home/tliu/fsx/dataset/LRS2/*/*.mp4')
+mp4list = glob.glob('/home/tliu/fsx/dataset/LRS2/main/*/*.mp4')
+
+train_file = open('metadata/lrs2_train.txt', 'w')
+valid_file = open('metadata/lrs2_valid.txt', 'w')
+test_file = open('metadata/lrs2_test.txt', 'w')
+for i, mp4name in enumerate(mp4list):
+	if i%10<8:
+		fw = train_file
+	elif i%10==8:
+		fw = valid_file
+	else:
+		fw = test_file
+	print(mp4name, file=fw)
+
+train_file.close()
+valid_file.close()
+test_file.close()
