@@ -15,8 +15,8 @@ for idx, mp4name in enumerate(mp4list):
 	tgt_fps = 25
 	extract_wav(mp4name)
 	img_tensor, wav_tensor = get_frame_and_wav_cv2(mp4name, tgt_fps=tgt_fps)
-	img_array = img_tensor.numpy()
-	wav_array = wav_tensor.numpy()
+	img_array = img_tensor.numpy().astype(int)
+	wav_array = wav_tensor.numpy().astype(int)
 	frame_num, channel, width, height = img_tensor.shape
 	print(frame_num, channel, width, height)
 
