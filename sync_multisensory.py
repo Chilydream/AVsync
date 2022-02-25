@@ -240,14 +240,14 @@ def main():
 	                                 num_workers=args.num_workers,
 	                                 n_mfcc=args.n_mfcc,
 	                                 resolution=args.face_size,
-	                                 seq_len=args.seq_len,
+	                                 seq_len=args.tgt_frame_num,
 	                                 is_train=True, max_size=0)
 
 	valid_loader = LRWFaceDataLoader(args.val_list, batch_size,
 	                                 num_workers=args.num_workers,
 	                                 n_mfcc=args.n_mfcc,
 	                                 resolution=args.face_size,
-	                                 seq_len=args.seq_len,
+	                                 seq_len=args.tgt_frame_num,
 	                                 is_train=True, max_size=0)
 	# train_loader = LabDataLoader(args.train_list, batch_size,
 	#                              num_workers=args.num_workers,
@@ -282,7 +282,7 @@ def main():
 			                            num_workers=args.num_workers,
 			                            n_mfcc=args.n_mfcc,
 			                            resolution=args.img_size,
-			                            seq_len=args.seq_len,
+			                            seq_len=args.tgt_frame_num,
 			                            is_train=False, max_size=0)
 			evaluate(model_ms,
 			         criterion_class,

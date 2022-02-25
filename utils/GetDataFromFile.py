@@ -76,7 +76,7 @@ def get_frame_and_wav_cv2(filename, tgt_frame_num=25, tgt_fps=25, resolution=0, 
 
 	if total_frame==0:
 		total_frame = cap.get(cv2.CAP_PROP_FRAME_COUNT)
-		# 通过cv2获取的总帧数很可能不准，如果有办法确定，最好在参数中说明是
+		# 通过cv2获取的总帧数很可能不准，如果有办法确定，最好在参数中说明
 
 	start_frame = np.random.randint(0, total_frame-tgt_frame_num-5)
 	cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)

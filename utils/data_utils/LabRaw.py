@@ -9,19 +9,20 @@ from queue import Queue
 from torch.utils.data.dataset import Dataset
 from torch.utils.data import DataLoader
 
-from utils.GetDataFromFile import get_mfcc, get_frame_tensor, get_wav, get_frame_and_wav, get_frame_and_wav_cv2
+from utils.GetDataFromFile import get_frame_and_wav_cv2
 
 
 class LabDataset(Dataset):
-	def __init__(self, dataset_file, seq_len, resolution, max_size):
+	def __init__(self, dataset_file,
+	             tgt_frame_num, tgt_fps, resolution,
+	             wav_hz):
 		super(LabDataset, self).__init__()
 		self.dataset_file_name = dataset_file
-		self.seq_len = seq_len
+		self.tgt_frame_num = tgt_frame_num
+		self.tgt_fps = tgt_fps
+		self.wav_hz = wav_hz
 		self.resolution = resolution
-		self.max_size = max_size
 		self.file_list = []
-		# self.talk_flag = []
-		# todo:　静音数据集
 		self.nfile = 0
 
 		with open(dataset_file) as fr:
@@ -39,32 +40,26 @@ class LabDataset(Dataset):
 
 	def __getitem__(self, item):
 		mp4_name = self.file_list[item]
-		wav_name = mp4_name[:-3]+'wav'
-		img_tensor, wav_tensor = get_frame_and_wav_cv2(mp4_name,
-		                                               tgt_frame_num=self.seq_len,
-		                                               resolution=self.resolution)
-		# img_tensor = get_frame_tensor(mp4_name, seq_len=self.seq_len, resolution=self.resolution)
-		# wav_tensor = get_wav(wav_name)
-		# wav_start = np.random.randint(0, 32000)
-		# wav_tensor = wav_tensor[wav_start:wav_start+int(16000*(self.seq_len/25))]
+		img_tensor, wav_tensor = get_frame_and_wav_cv2(filename=mp4_name,
+		                                               tgt_frame_num=self.tgt_frame_num,
+		                                               tgt_fps=self.tgt_fps,
+		                                               resolution=self.resolution,
+		                                               wav_hz=self.wav_hz)
 		return img_tensor, wav_tensor
-
-	def __len__(self):
-		if self.max_size<=0:
-			return self.nfile
-		return min(self.max_size, self.nfile)
 
 
 class LabDataLoader(DataLoader):
-	def __init__(self, dataset_file, batch_size, num_workers, seq_len, resolution, is_train=True, max_size=0):
-		# todo: max_size不为0时，似乎不会进行shuffle，有待解决
+	def __init__(self, dataset_file, batch_size, num_workers,
+	             tgt_frame_num, tgt_fps, resolution,
+	             wav_hz=16000,
+	             is_train=True):
 		self.dataset_file = dataset_file
 		self.dataset = LabDataset(dataset_file=dataset_file,
-		                          seq_len=seq_len,
+		                          tgt_frame_num=tgt_frame_num,
+		                          tgt_fps=tgt_fps,
 		                          resolution=resolution,
-		                          max_size=max_size)
+		                          wav_hz=wav_hz)
 		self.num_workers = num_workers
 		self.batch_size = batch_size
-		self.max_size = max_size
 		super().__init__(dataset=self.dataset, shuffle=is_train, batch_size=batch_size,
 		                 drop_last=True, num_workers=num_workers)

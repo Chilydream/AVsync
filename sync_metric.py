@@ -151,14 +151,14 @@ def main():
 	                             num_workers=args.num_workers,
 	                             n_mfcc=args.n_mfcc,
 	                             resolution=args.img_resolution,
-	                             seq_len=args.seq_len,
+	                             seq_len=args.tgt_frame_num,
 	                             is_train=True, max_size=0)
 
 	valid_loader = LRWDataLoader(args.val_list, batch_size,
 	                             num_workers=args.num_workers,
 	                             n_mfcc=args.n_mfcc,
 	                             resolution=args.img_resolution,
-	                             seq_len=args.seq_len,
+	                             seq_len=args.tgt_frame_num,
 	                             is_train=True, max_size=0)
 	loader_timer.update(time.time())
 	print(f'Batch Num in Train Loader: {len(train_loader)}')
@@ -188,7 +188,7 @@ def main():
 			                            num_workers=args.num_workers,
 			                            n_mfcc=args.n_mfcc,
 			                            resolution=args.resolution,
-			                            seq_len=args.seq_len,
+			                            seq_len=args.tgt_frame_num,
 			                            is_train=False, max_size=0)
 			with torch.no_grad():
 				model_img2lip.eval()

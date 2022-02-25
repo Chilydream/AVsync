@@ -1,63 +1,13 @@
-import argparse
-import math
 import os
-import platform
-import shutil
-import time
-
-import librosa
-import numpy as np
-import cv2
-import torch
-import torchaudio
-import tqdm
-import yaml
-from torch import nn
-import torch.nn.functional as F
-import torch.optim as optim
-import torchvision.transforms as transforms
-from torchvision import utils as vutils
-import wandb
 import glob
-import skvideo.io
-import imutils
-from moviepy.editor import VideoFileClip
-import sys
-
-from model.Lmk2LipModel import Lmk2LipModel
-from model.VGGModel import VGG6_speech
-from utils.data_utils.LRWImageLmkTriplet import LRWImageLmkTripletDataLoader
-from utils.data_utils.LabLmkWav import LabLmkWavDataLoader
-from utils.data_utils.LabRaw import LabDataset, LabDataLoader
+import shutil
+import cv2
+from utils.GetDataFromFile import get_frame_and_wav_cv2
 from utils.extract_wav import extract_wav
 
-sys.path.append('./third_party/yolo')
-sys.path.append('./third_party/HRNet')
+data_dir = '/home/tliu/fsx/dataset/class50/class-01'
+mp4list = glob.glob(os.path.join(data_dir, '*.mp4'))
 
-from utils.GetDataFromFile import get_mfcc, get_wav, get_frame_moviepy, get_frame_and_wav
-from utils.extract_lmk import extract_lmk
-from utils.tensor_utils import PadSquare
-from utils.GetConsoleArgs import TrainOptions
-from utils.Meter import Meter
-from utils.accuracy import topk_acc, get_gt_label, get_rand_idx
-from third_party.yolo.yolo_models.yolo import Model as yolo_model
-from third_party.yolo.yolo_utils.util_yolo import face_detect
-from third_party.HRNet.utils_inference import get_model_by_name, get_batch_lmks
-
-mp4list = glob.glob('/home/tliu/fsx/dataset/LRS2/main/*/*.mp4')
-
-train_file = open('metadata/lrs2_train.txt', 'w')
-valid_file = open('metadata/lrs2_valid.txt', 'w')
-test_file = open('metadata/lrs2_test.txt', 'w')
-for i, mp4name in enumerate(mp4list):
-	if i%10<8:
-		fw = train_file
-	elif i%10==8:
-		fw = valid_file
-	else:
-		fw = test_file
-	print(mp4name, file=fw)
-
-train_file.close()
-valid_file.close()
-test_file.close()
+a = cv2.imread('/home/tliu/fsx/project/AVsync/test/bai.jpg')
+print(a.shape)
+print(a.dtype)

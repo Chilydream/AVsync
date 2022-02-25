@@ -160,12 +160,12 @@ def main():
 	loader_timer.set_start_time(time.time())
 	train_loader = LabLmkWavDataLoader(args.train_list, batch_size,
 	                                   num_workers=args.num_workers,
-	                                   seq_len=args.seq_len,
+	                                   seq_len=args.tgt_frame_num,
 	                                   is_train=True, max_size=0)
 
 	valid_loader = LabLmkWavDataLoader(args.val_list, batch_size,
 	                                   num_workers=args.num_workers,
-	                                   seq_len=args.seq_len,
+	                                   seq_len=args.tgt_frame_num,
 	                                   is_train=True, max_size=0)
 	loader_timer.update(time.time())
 	print(f'Batch Num in Train Loader: {len(train_loader)}')
@@ -193,7 +193,7 @@ def main():
 			del valid_loader
 			test_loader = LabLmkWavDataLoader(args.test_list, batch_size,
 			                                  num_workers=args.num_workers,
-			                                  seq_len=args.seq_len,
+			                                  seq_len=args.tgt_frame_num,
 			                                  is_train=True, max_size=0)
 			with torch.no_grad():
 				model_lmk2lip.eval()
