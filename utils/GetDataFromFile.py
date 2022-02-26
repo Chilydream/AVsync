@@ -172,7 +172,7 @@ def get_frame_tensor(filename, seq_len=0, resolution=0, tgt_fps=25):
 	raw_frame_num = int(seq_len*src_fps/tgt_fps)
 	while True:
 		image_cnt += 1
-		if image_cnt>raw_frame_num != 0:
+		if image_cnt>=raw_frame_num != 0:
 			break
 		ret, image = cap.read()
 		if image is None:
