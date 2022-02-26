@@ -37,6 +37,7 @@ class LabDataset(Dataset):
 					if os.path.exists(filename):
 						self.file_list.append(filename)
 		self.nfile = len(self.file_list)
+		print(self.nfile)
 
 	def __getitem__(self, item):
 		mp4_name = self.file_list[item]
@@ -46,6 +47,9 @@ class LabDataset(Dataset):
 		                                               resolution=self.resolution,
 		                                               wav_hz=self.wav_hz)
 		return img_tensor, wav_tensor
+
+	def __len__(self):
+		return self.nfile
 
 
 class LabDataLoader(DataLoader):

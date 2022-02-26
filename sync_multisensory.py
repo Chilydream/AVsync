@@ -82,43 +82,6 @@ def lab_crop_run(model_ms, model_yolo, data, args):
 	return label_gt, label_pred
 
 
-def lrw_run(model_ms, data, args):
-	run_device = torch.device("cuda:0" if args.gpu else "cpu")
-	a_wav, a_img, a_wid = data
-	a_wav = a_wav.to(run_device)
-	a_img = a_img.to(run_device)
-	a_wid = a_wid.to(run_device)
-	a_img.transpose_(2, 1)
-	a_lip = model_ms.img_forward(a_img)
-
-	new_idx = get_rand_idx(args.batch_size)
-	a_wav = a_wav[new_idx, :]
-	a_voice = model_ms.snd_forward(a_wav)
-
-	label_gt = get_gt_label(a_wid, new_idx).to(run_device)
-	label_pred = model_ms.merge_forward(img_feature=a_lip, snd_feature=a_voice)
-	return label_gt, label_pred
-
-
-def lrw_crop_run(model_ms, model_yolo, data, args):
-	run_device = torch.device("cuda:0" if args.gpu else "cpu")
-	a_wav, a_img, a_wid = data
-	a_wav = a_wav.to(run_device)
-	a_img = a_img.to(run_device)
-	a_wid = a_wid.to(run_device)
-	a_face = crop_face_batch_seq(model_yolo, a_img, args.face_size, run_device)
-	a_face.transpose_(2, 1)
-	a_lip = model_ms.img_forward(a_face)
-
-	new_idx = get_rand_idx(args.batch_size)
-	a_wav = a_wav[new_idx, :]
-	a_voice = model_ms.snd_forward(a_wav)
-
-	label_gt = get_gt_label(a_wid, new_idx).to(run_device)
-	label_pred = model_ms.merge_forward(img_feature=a_lip, snd_feature=a_voice)
-	return label_gt, label_pred
-
-
 def evaluate(model_ms, criterion_class, loader, args):
 	with torch.no_grad():
 		model_ms.eval()
@@ -147,7 +110,7 @@ def evaluate(model_ms, criterion_class, loader, args):
 			val_loss_final.update(loss_final.item())
 			val_timer.update(time.time())
 			print(f'\r\tBatch:{val_timer.count:04d}/{len(loader):04d}  {val_timer}{val_loss_final}',
-			      f'{val_acc_class} EMA ACC: {val_acc_class.avg_ema:.2f}%, ',
+			      f'\033[1;35m{val_acc_class}\033[0m, ',
 			      f'{val_loss_class}',
 			      sep='', end='     ')
 
@@ -175,6 +138,7 @@ def main():
 
 	# ============================WandB日志=============================
 	if args.wandb:
+		wandb.login(host="https://api.wandb.ai", key="455ddd28d06ef63d12656b45fababc83f390129e")
 		wandb.init(project=args.project_name, config=args,
 		           name=args.exp_num, group=args.exp_num)
 
@@ -223,42 +187,21 @@ def main():
 	loader_timer = Meter('Time', 'time', ':3.0f', end='')
 	print('%sStart loading dataset%s'%('='*20, '='*20))
 	loader_timer.set_start_time(time.time())
-	# train_loader = LRWDataLoader(args.train_list, batch_size,
-	#                              num_workers=args.num_workers,
-	#                              n_mfcc=args.n_mfcc,
-	#                              resolution=args.img_size,
-	#                              seq_len=args.seq_len,
-	#                              is_train=True, max_size=0)
-	#
-	# valid_loader = LRWDataLoader(args.val_list, batch_size,
-	#                              num_workers=args.num_workers,
-	#                              n_mfcc=args.n_mfcc,
-	#                              resolution=args.img_size,
-	#                              seq_len=args.seq_len,
-	#                              is_train=True, max_size=0)
-	train_loader = LRWFaceDataLoader(args.train_list, batch_size,
-	                                 num_workers=args.num_workers,
-	                                 n_mfcc=args.n_mfcc,
-	                                 resolution=args.face_size,
-	                                 seq_len=args.tgt_frame_num,
-	                                 is_train=True, max_size=0)
 
-	valid_loader = LRWFaceDataLoader(args.val_list, batch_size,
-	                                 num_workers=args.num_workers,
-	                                 n_mfcc=args.n_mfcc,
-	                                 resolution=args.face_size,
-	                                 seq_len=args.tgt_frame_num,
-	                                 is_train=True, max_size=0)
-	# train_loader = LabDataLoader(args.train_list, batch_size,
-	#                              num_workers=args.num_workers,
-	#                              seq_len=args.seq_len,
-	#                              resolution=args.img_size,
-	#                              is_train=True, max_size=0)
-	# valid_loader = LabDataLoader(args.val_list, batch_size,
-	#                              num_workers=args.num_workers,
-	#                              seq_len=args.seq_len,
-	#                              resolution=args.img_size,
-	#                              is_train=False, max_size=0)
+	train_loader = LabDataLoader(args.train_list, batch_size,
+	                             num_workers=args.num_workers,
+	                             tgt_frame_num=args.tgt_frame_num,
+	                             tgt_fps=args.tgt_fps,
+	                             resolution=args.img_size,
+	                             wav_hz=16000,
+	                             is_train=True, )
+	valid_loader = LabDataLoader(args.val_list, batch_size,
+	                             num_workers=args.num_workers,
+	                             tgt_frame_num=args.tgt_frame_num,
+	                             tgt_fps=args.tgt_fps,
+	                             resolution=args.img_size,
+	                             wav_hz=16000,
+	                             is_train=False, )
 	loader_timer.update(time.time())
 	print(f'Batch Num in Train Loader: {len(train_loader)}')
 	print(f'Finish loading dataset {loader_timer}')
@@ -278,12 +221,13 @@ def main():
 			         valid_loader, args)
 		else:
 			del valid_loader
-			test_loader = LRWDataLoader(args.test_list, batch_size,
+			test_loader = LabDataLoader(args.test_list, batch_size,
 			                            num_workers=args.num_workers,
-			                            n_mfcc=args.n_mfcc,
+			                            tgt_frame_num=args.tgt_frame_num,
+			                            tgt_fps=args.tgt_fps,
 			                            resolution=args.img_size,
-			                            seq_len=args.tgt_frame_num,
-			                            is_train=False, max_size=0)
+			                            wav_hz=16000,
+			                            is_train=False, )
 			evaluate(model_ms,
 			         criterion_class,
 			         test_loader, args)
@@ -322,9 +266,7 @@ def main():
 		batch_cnt = 0
 		epoch_timer.set_start_time(time.time())
 		for data in train_loader:
-			label_gt, label_pred = lrw_run(model_ms, data, args)
-			# label_gt, label_pred = lrw_crop_run(model_ms, model_yolo, data, args)
-			# label_gt, label_pred = lab_run(model_ms, data, args)
+			label_gt, label_pred = lab_run(model_ms, data, args)
 			# label_gt, label_pred = lab_crop_run(model_ms, model_yolo, data, args)
 
 			# ======================计算唇部特征单词分类损失===========================
@@ -344,7 +286,8 @@ def main():
 			epoch_timer.update(time.time())
 			batch_cnt += 1
 			print(f'\rBatch:{batch_cnt:04d}/{len(train_loader):04d}  {epoch_timer}{epoch_loss_final}',
-			      f'{epoch_acc_sync}EMA ACC: {epoch_acc_sync.avg_ema:.2f}%, ',
+			      f'\033[1;35m{epoch_acc_sync}\033[0m'
+			      f'EMA ACC: {epoch_acc_sync.avg_ema:.2f}%, ',
 			      f'{epoch_loss_class}',
 			      sep='', end='     ')
 
@@ -372,16 +315,15 @@ def main():
 
 		# ===========================验证=======================
 		if args.valid_step>0 and (epoch+1)%args.valid_step == 0:
-			try:
-				log_dict.update(evaluate(model_ms, criterion_class, valid_loader, args))
-			except:
-				print('Evaluating Error')
+			log_dict.update(evaluate(model_ms, criterion_class, valid_loader, args))
+			# try:
+			# 	log_dict.update(evaluate(model_ms, criterion_class, valid_loader, args))
+			# except:
+			# 	print('Evaluating Error')
 
 		if args.wandb:
 			wandb.log(log_dict)
 		print(log_dict, file=file_train_log)
-		torch.cuda.synchronize()
-		torch.cuda.empty_cache()
 	file_train_log.close()
 	if args.wandb:
 		wandb.finish()
@@ -389,5 +331,5 @@ def main():
 
 if __name__ == '__main__':
 	# with torch.autograd.set_detect_anomaly(True):
-	torch.multiprocessing.set_start_method('spawn')
+	# torch.multiprocessing.set_start_method('spawn')
 	main()

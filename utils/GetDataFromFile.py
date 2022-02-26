@@ -78,28 +78,29 @@ def get_frame_and_wav_cv2(filename, tgt_frame_num=25, tgt_fps=25, resolution=0, 
 		total_frame = cap.get(cv2.CAP_PROP_FRAME_COUNT)
 		# 通过cv2获取的总帧数很可能不准，如果有办法确定，最好在参数中说明
 
-	start_frame = np.random.randint(0, total_frame-tgt_frame_num-5)
+	src_frame_num = int(tgt_frame_num*src_fps/tgt_fps)
+	start_frame = np.random.randint(0, max(total_frame-src_frame_num-2*src_fps, 1))
 	cap.set(cv2.CAP_PROP_POS_FRAMES, start_frame)
 	start_time = start_frame*1.0/src_fps
 
 	image_list = []
-	image_cnt = 0
-	src_frame_num = int(tgt_frame_num*src_fps/tgt_fps)
-	while True:
-		image_cnt += 1
-		if image_cnt>src_frame_num != 0:
-			break
+	for _ in range(src_frame_num):
 		ret, image = cap.read()
 		if image is None:
 			break
-
 		if resolution != (0, 0):
 			image = make_image_square(image)
 			image = cv2.resize(image, resolution)
 		image_list.append(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
-	if len(image_list)<tgt_frame_num:
-		print(f'{filename} len(image_list){len(image_list)}, raw_num{src_frame_num}, {src_fps}')
+	if len(image_list)<src_frame_num:
+		print(f'\033[1;45m'
+		      f'WARNNING'
+		      f'{filename} len(image_list){len(image_list)},'
+		      f' raw_num{src_frame_num},'
+		      f' src_fps{src_fps},'
+		      f' tgt_fps{tgt_fps}'
+		      f'\033[0m')
 	cap.release()
 	im = np.stack(image_list, axis=3)
 	# stack操作后 im的形状是（256,256,3,29）
@@ -108,8 +109,12 @@ def get_frame_and_wav_cv2(filename, tgt_frame_num=25, tgt_fps=25, resolution=0, 
 	im_tensor = torch.FloatTensor(im)
 	if src_frame_num != tgt_frame_num and tgt_frame_num != 0:
 		frac_ratio = src_fps/tgt_fps
-		new_idx = list(map(lambda i: int(i*frac_ratio), range(tgt_frame_num)))
+		new_idx = list(map(lambda i: min(int(i*frac_ratio), src_frame_num-1),
+		                   range(tgt_frame_num)))
 		im_tensor = im_tensor[new_idx, ...]
+	if im_tensor.shape[0]!=tgt_frame_num:
+		print(f'{filename} len(image_list){len(image_list)}, raw_num{src_frame_num}, src_fps{src_fps}, tgt_fps{tgt_fps}')
+		print(im_tensor.shape)
 	wavname = filename[:-3]+'wav'
 	wav_array = get_wav(wavname)
 	# wav_offset = 1
