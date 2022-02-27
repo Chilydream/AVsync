@@ -67,15 +67,17 @@ def get_frame_and_wav(filename, seq_len=29, video_fps=25, resolution=0):
 	return im_tensor, wav_match
 
 
-def calc_frame_num(filename):
+def get_video_time(filename):
 	cap = cv2.VideoCapture(filename)
 	frame_num = 0
+	src_fps = cap.get(cv2.CAP_PROP_FPS)
 	while True:
 		ret, image = cap.read()
 		if image is None:
 			break
 		frame_num += 1
-	return frame_num
+	video_time = frame_num/src_fps
+	return video_time
 
 
 def get_frame_and_wav_cv2(filename, tgt_frame_num=25, tgt_fps=25, resolution=0, wav_hz=16000, total_time=0):
