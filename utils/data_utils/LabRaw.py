@@ -36,7 +36,8 @@ class LabDataset(Dataset):
 						self.file_list.append(filename)
 						# SeTlgy7GVXU_004.605000-009.243000.mp4
 						# 012345678901234567890123456789012
-						time_length = float(filename[23:33])-float(filename[12:22])
+						# time_length = float(filename[23:33])-float(filename[12:22])
+						time_length = float(filename[55:65])-float(filename[44:54])
 						self.length_list.append(time_length)
 				else:
 					if len(items) == 2:

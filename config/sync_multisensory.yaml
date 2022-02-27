@@ -13,7 +13,7 @@ num_workers: 4
 sync_lr: 0.0001
 sync_gamma: 0.99
 gpu: False
-wandb: True
+wandb: False
 
 tmp_flag: True
 
