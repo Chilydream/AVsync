@@ -67,16 +67,18 @@ def get_frame_and_wav(filename, seq_len=29, video_fps=25, resolution=0):
 	return im_tensor, wav_match
 
 
-def get_frame_and_wav_cv2(filename, tgt_frame_num=25, tgt_fps=25, resolution=0, wav_hz=16000, total_frame=0):
+def get_frame_and_wav_cv2(filename, tgt_frame_num=25, tgt_fps=25, resolution=0, wav_hz=16000, total_time=0):
 	if isinstance(resolution, int):
 		resolution = (resolution, resolution)
 	cap = cv2.VideoCapture(filename)
 	src_fps = cap.get(cv2.CAP_PROP_FPS)
 	src_fps = round(src_fps)
 
-	if total_frame==0:
+	if total_time==0:
 		total_frame = cap.get(cv2.CAP_PROP_FRAME_COUNT)
 		# 通过cv2获取的总帧数很可能不准，如果有办法确定，最好在参数中说明
+	else:
+		total_frame = int(total_time*src_fps)
 
 	src_frame_num = int(tgt_frame_num*src_fps/tgt_fps)
 	start_frame = np.random.randint(0, max(total_frame-src_frame_num-2*src_fps, 1))

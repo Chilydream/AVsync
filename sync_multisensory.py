@@ -194,6 +194,7 @@ def main():
 	                             tgt_fps=args.tgt_fps,
 	                             resolution=args.img_size,
 	                             wav_hz=16000,
+	                             avspeech_flag=args.tmp_flag,
 	                             is_train=True, )
 	valid_loader = LabDataLoader(args.val_list, batch_size,
 	                             num_workers=args.num_workers,
@@ -201,6 +202,7 @@ def main():
 	                             tgt_fps=args.tgt_fps,
 	                             resolution=args.img_size,
 	                             wav_hz=16000,
+	                             avspeech_flag=args.tmp_flag,
 	                             is_train=False, )
 	loader_timer.update(time.time())
 	print(f'Batch Num in Train Loader: {len(train_loader)}')
@@ -227,6 +229,7 @@ def main():
 			                            tgt_fps=args.tgt_fps,
 			                            resolution=args.img_size,
 			                            wav_hz=16000,
+			                            avspeech_flag=args.tmp_flag,
 			                            is_train=False, )
 			evaluate(model_ms,
 			         criterion_class,
@@ -316,10 +319,10 @@ def main():
 		# ===========================验证=======================
 		if args.valid_step>0 and (epoch+1)%args.valid_step == 0:
 			log_dict.update(evaluate(model_ms, criterion_class, valid_loader, args))
-			# try:
-			# 	log_dict.update(evaluate(model_ms, criterion_class, valid_loader, args))
-			# except:
-			# 	print('Evaluating Error')
+		# try:
+		# 	log_dict.update(evaluate(model_ms, criterion_class, valid_loader, args))
+		# except:
+		# 	print('Evaluating Error')
 
 		if args.wandb:
 			wandb.log(log_dict)

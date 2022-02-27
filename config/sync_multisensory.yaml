@@ -15,6 +15,8 @@ sync_gamma: 0.99
 gpu: False
 wandb: True
 
+tmp_flag: True
+
 #train_list:  "metadata/avspeech_train.txt"
 #val_list:      "metadata/avspeech_val.txt"
 #test_list:    "metadata/avspeech_test.txt"
