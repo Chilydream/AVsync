@@ -9,7 +9,7 @@ from queue import Queue
 from torch.utils.data.dataset import Dataset
 from torch.utils.data import DataLoader
 
-from utils.GetDataFromFile import get_frame_and_wav_cv2
+from utils.GetDataFromFile import get_frame_and_wav_cv2, calc_frame_num
 
 
 class LabDataset(Dataset):
@@ -28,7 +28,8 @@ class LabDataset(Dataset):
 		self.nfile = 0
 
 		with open(dataset_file) as fr:
-			for idx, line in enumerate(fr.readlines()):
+			lines = fr.readlines()
+			for idx, line in enumerate(lines):
 				items = line.strip().split('\t')
 				if avspeech_flag:
 					filename = items[0]
@@ -44,12 +45,12 @@ class LabDataset(Dataset):
 						is_talk, filename = items
 						if is_talk != '0':
 							self.file_list.append(filename)
-							self.length_list.append(0)
+							self.length_list.append(calc_frame_num(filename))
 					elif len(items) == 1:
 						filename = items[0]
 						if os.path.exists(filename):
 							self.file_list.append(filename)
-							self.length_list.append(0)
+							self.length_list.append(calc_frame_num(filename))
 
 		self.nfile = len(self.file_list)
 		print(self.nfile)

@@ -67,6 +67,17 @@ def get_frame_and_wav(filename, seq_len=29, video_fps=25, resolution=0):
 	return im_tensor, wav_match
 
 
+def calc_frame_num(filename):
+	cap = cv2.VideoCapture(filename)
+	frame_num = 0
+	while True:
+		ret, image = cap.read()
+		if image is None:
+			break
+		frame_num += 1
+	return frame_num
+
+
 def get_frame_and_wav_cv2(filename, tgt_frame_num=25, tgt_fps=25, resolution=0, wav_hz=16000, total_time=0):
 	if isinstance(resolution, int):
 		resolution = (resolution, resolution)
