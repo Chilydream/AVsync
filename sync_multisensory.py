@@ -148,7 +148,7 @@ def main():
 	# model_yolo.load_state_dict(torch.load('pretrain_model/raw_yolov5s.pt'))
 	# model_yolo.to(run_device)
 
-	model_ms = MultiSensory(sound_rate=16000, image_fps=25)
+	model_ms = MultiSensory(sound_rate=16000, image_fps=args.tgt_fps)
 	model_list = [model_ms]
 	for model_iter in model_list:
 		model_iter.to(run_device)
@@ -318,11 +318,11 @@ def main():
 
 		# ===========================验证=======================
 		if args.valid_step>0 and (epoch+1)%args.valid_step == 0:
-			log_dict.update(evaluate(model_ms, criterion_class, valid_loader, args))
-		# try:
-		# 	log_dict.update(evaluate(model_ms, criterion_class, valid_loader, args))
-		# except:
-		# 	print('Evaluating Error')
+			# log_dict.update(evaluate(model_ms, criterion_class, valid_loader, args))
+			try:
+				log_dict.update(evaluate(model_ms, criterion_class, valid_loader, args))
+			except:
+				print('Evaluating Error')
 
 		if args.wandb:
 			wandb.log(log_dict)

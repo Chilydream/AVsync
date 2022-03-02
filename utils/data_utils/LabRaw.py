@@ -1,3 +1,4 @@
+import cv2
 import torch
 import numpy as np
 import random
@@ -41,16 +42,23 @@ class LabDataset(Dataset):
 						time_length = float(filename[55:65])-float(filename[44:54])
 						self.length_list.append(time_length)
 				else:
-					if len(items) == 2:
-						is_talk, filename = items
-						if is_talk != '0':
-							self.file_list.append(filename)
-							self.length_list.append(get_video_time(filename))
-					elif len(items) == 1:
+					if len(items) == 1:
 						filename = items[0]
 						if os.path.exists(filename):
 							self.file_list.append(filename)
 							self.length_list.append(get_video_time(filename))
+					elif len(items) == 2:
+						is_talk, filename = items
+						if is_talk != '0':
+							self.file_list.append(filename)
+							self.length_list.append(get_video_time(filename))
+					elif len(items) == 3:
+						is_talk, filename, video_time = items
+						video_time = float(video_time)
+						if os.path.exists(filename):
+							if video_time>=2:
+								self.file_list.append(filename)
+								self.length_list.append(video_time)
 
 		self.nfile = len(self.file_list)
 		print(self.nfile)

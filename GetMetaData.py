@@ -2,6 +2,8 @@ import os
 import cv2
 import glob
 import tqdm
+
+from utils.GetDataFromFile import get_video_time
 from utils.extract_wav import extract_wav
 
 
@@ -98,7 +100,28 @@ def word_split():
 					print(f'{word}\t{filename}', file=strain)
 
 
+def get_LRS2_meta(metafile, mode):
+	assert mode in ('train', 'val', 'test')
+	dataset_dir = '/home/tliu/fsx/dataset/LRS2'
+	main_dir = os.path.join(dataset_dir, 'main')
+	pretrain_dir = os.path.join(dataset_dir, 'pretrain')
+	with open(metafile, 'w') as fw:
+		video_list = glob.glob(os.path.join(main_dir, '*', '*.mp4'))
+		# video_list.extend(glob.glob(os.path.join(pretrain_dir, '*', '*.mp4')))
+		video_list.sort()
+		for i, filename in tqdm.tqdm(enumerate(video_list)):
+			new_filename = filename.replace('\\', '/')
+			if i%10<=7 and mode == 'train':
+				video_time = get_video_time(new_filename)
+				print(f'1\t{new_filename}\t{video_time}', file=fw)
+			elif i%10 == 8 and mode == 'val':
+				video_time = get_video_time(new_filename)
+				print(f'1\t{new_filename}\t{video_time}', file=fw)
+			elif i%10 == 9 and mode == 'test':
+				video_time = get_video_time(new_filename)
+				print(f'1\t{new_filename}\t{video_time}', file=fw)
+
 if __name__ == '__main__':
-	get_LRW_meta('metadata/LRW_train_face.txt', 'train')
-	get_LRW_meta('metadata/LRW_val_face.txt', 'val')
-	get_LRW_meta('metadata/LRW_test_face.txt', 'test')
+	get_LRS2_meta('./metadata/LRS2_train.txt', 'train')
+	get_LRS2_meta('./metadata/LRS2_val.txt', 'val')
+	get_LRS2_meta('./metadata/LRS2_test.txt', 'test')

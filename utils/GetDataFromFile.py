@@ -109,7 +109,7 @@ def get_frame_and_wav_cv2(filename, tgt_frame_num=25, tgt_fps=25, resolution=0, 
 		image_list.append(cv2.cvtColor(image, cv2.COLOR_BGR2RGB))
 
 	if len(image_list)<src_frame_num:
-		print(f'\033[1;45m'
+		print(f'\n\033[1;45m'
 		      f'WARNNING'
 		      f'{filename} len(image_list){len(image_list)},'
 		      f' raw_num{src_frame_num},'
