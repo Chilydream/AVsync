@@ -1,221 +1,393 @@
-import cv2
+import math
 import os
+import platform
+import time
 import numpy as np
-from PIL import Image
 import torch
-import torch.nn as nn
+from torch import nn
 import torch.nn.functional as F
-import torchvision
+import torch.optim as optim
 import torchvision.transforms as transforms
-import matplotlib.pyplot as plt
-from torchvision.models.resnet import resnet18
+import wandb
+import sys
 
 from model.MultiSensory import MultiSensory
-from utils.GetConsoleArgs import TrainOptions
-from utils.GetDataFromFile import get_frame_and_wav_cv2
+from utils.data_utils.LRWFace import LRWFaceDataLoader
 from utils.data_utils.LabRaw import LabDataLoader
 
+sys.path.append('/home/tliu/fsx/project/AVsync/third_party/yolo')
+sys.path.append('/home/tliu/fsx/project/AVsync/third_party/HRNet')
 
-class GradCAM:
-	def __init__(self, model: nn.Module, target_layer: str, size=(224, 224), num_cls=1000, mean=None, std=None) -> None:
-		self.model = model
-		self.model.eval()
+from utils.crop_face import crop_face_batch_seq, crop_face_seq
+from utils.accuracy import get_gt_label, get_rand_idx
+from utils.data_utils.LRWRaw import LRWDataLoader
+from model.Lip2TModel import Lip2T_fc_Model
+from model.Lmk2LipModel import Lmk2LipModel
+from model.SyncModel import SyncModel
+from model.Voice2TModel import Voice2T_fc_Model
+from model.VGGModel import VGG6_speech, ResLip, VGG6_lip, VGG5_lip
+from utils.data_utils.LRWImageTriplet import LRWImageTripletDataLoader
+from utils.tensor_utils import PadSquare, MyContrastiveLoss
+from utils.GetConsoleArgs import TrainOptions
+from utils.Meter import Meter
+from third_party.HRNet.utils_inference import get_model_by_name, get_batch_lmks
+from third_party.yolo.yolo_models.yolo import Model as yolo_model
 
-		# register hook
-		# 可以自己指定层名，没必要一定通过target_layer传递参数
-		# self.model.layer4
-		# self.model.layer4[1].register_forward_hook(self.__forward_hook)
-		# self.model.layer4[1].register_backward_hook(self.__backward_hook)
-		getattr(self.model, target_layer).register_forward_hook(self.__forward_hook)
-		getattr(self.model, target_layer).register_backward_hook(self.__backward_hook)
 
-		self.size = size
-		self.origin_size = None
-		self.num_cls = num_cls
+def lab_run(model_ms, data, args):
+	run_device = torch.device("cuda:0" if args.gpu else "cpu")
+	a_img, a_wav_match = data
+	a_img = a_img.to(run_device)
+	a_img.transpose_(2, 1)
+	a_wav_match = a_wav_match.to(run_device)
+	label_gt_mis = torch.zeros(args.batch_size, dtype=torch.long)
+	label_gt_match = torch.ones(args.batch_size, dtype=torch.long)
+	a_lip = model_ms.img_forward(a_img)
+	a_snd_match = model_ms.snd_forward(a_wav_match)
+	# snd_feature = (b, 256, 18, 1)
+	new_idx = list(range(1, args.batch_size))
+	new_idx.append(0)
+	a_snd_mis = a_snd_match[new_idx, ...].squeeze(0)
+	label_pred_match = model_ms.merge_forward(snd_feature=a_snd_match, img_feature=a_lip)
+	label_pred_mis = model_ms.merge_forward(snd_feature=a_snd_mis, img_feature=a_lip)
 
-		self.mean, self.std = [0.485, 0.456, 0.406], [0.229, 0.224, 0.225]
-		if mean and std:
-			self.mean, self.std = mean, std
+	label_gt = torch.cat((label_gt_match, label_gt_mis), dim=0)
+	label_pred = torch.cat((label_pred_match, label_pred_mis), dim=0)
+	label_gt = label_gt.to(run_device)
+	label_pred = label_pred.to(run_device)
+	return label_gt, label_pred
 
-		self.grads = []
-		self.fmaps = []
 
-	def forward(self, img_arr: np.ndarray, label=None, show=True, write=False):
-		img_input = self.__img_preprocess(img_arr.copy())
+def lab_crop_run(model_ms, model_yolo, data, args):
+	run_device = torch.device("cuda:0" if args.gpu else "cpu")
+	a_img, a_wav_match = data
+	a_img = a_img.to(run_device)
+	a_face = crop_face_batch_seq(model_yolo, a_img, args.face_size, run_device)
+	a_face.transpose_(2, 1)
+	a_wav_match = a_wav_match.to(run_device)
+	label_gt_mis = torch.zeros(args.batch_size, dtype=torch.long)
+	label_gt_match = torch.ones(args.batch_size, dtype=torch.long)
+	a_lip = model_ms.img_forward(a_face)
+	a_snd_match = model_ms.snd_forward(a_wav_match)
+	new_idx = list(range(1, args.batch_size))
+	new_idx.append(0)
+	a_snd_mis = a_snd_match[new_idx, ...].squeeze(0)
+	label_pred_match = model_ms.merge_forward(snd_feature=a_snd_match, img_feature=a_lip)
+	label_pred_mis = model_ms.merge_forward(snd_feature=a_snd_mis, img_feature=a_lip)
 
-		# forward
-		output = self.model(img_input)
-		idx = np.argmax(output.cpu().data.numpy())
+	label_gt = torch.cat((label_gt_match, label_gt_mis), dim=0)
+	label_pred = torch.cat((label_pred_match, label_pred_mis), dim=0)
+	label_gt = label_gt.to(run_device)
+	label_pred = label_pred.to(run_device)
+	return label_gt, label_pred
 
-		# backward
-		self.model.zero_grad()
-		loss = self.__compute_loss(output, label)
 
-		loss.backward()
+def lrw_run(model_ms, data, args):
+	run_device = torch.device("cuda:0" if args.gpu else "cpu")
+	a_wav, a_img, a_wid = data
+	a_wav = a_wav.to(run_device)
+	a_img = a_img.to(run_device)
+	a_wid = a_wid.to(run_device)
+	a_img.transpose_(2, 1)
+	a_lip = model_ms.img_forward(a_img)
 
-		# generate CAM
-		grads_val = self.grads[0].cpu().data.numpy().squeeze()
-		fmap = self.fmaps[0].cpu().data.numpy().squeeze()
-		cam = self.__compute_cam(fmap, grads_val)
+	new_idx = get_rand_idx(args.batch_size)
+	a_wav = a_wav[new_idx, :]
+	a_voice = model_ms.snd_forward(a_wav)
 
-		# show
-		cam_show = cv2.resize(cam, self.origin_size)
-		img_show = img_arr.astype(np.float32)/255
-		self.__show_cam_on_image(img_show, cam_show, if_show=show, if_write=write)
+	label_gt = get_gt_label(a_wid, new_idx).to(run_device)
+	label_pred = model_ms.merge_forward(img_feature=a_lip, snd_feature=a_voice)
+	return label_gt, label_pred
 
-		self.fmaps.clear()
-		self.grads.clear()
 
-	def my_forward(self, vid_arr, wav_arr, label=None, output_name='out/camcam.mp4'):
-		# forward
-		a_lip = self.model.img_forward(vid_arr)
-		a_wav = self.model.snd_forward(wav_arr)
-		a_pred = self.model.merge_forward(snd_feature=a_lip, img_feature=a_wav)
+def lrw_crop_run(model_ms, model_yolo, data, args):
+	run_device = torch.device("cuda:0" if args.gpu else "cpu")
+	a_wav, a_img, a_wid = data
+	a_wav = a_wav.to(run_device)
+	a_img = a_img.to(run_device)
+	a_wid = a_wid.to(run_device)
+	a_face = crop_face_batch_seq(model_yolo, a_img, args.face_size, run_device)
+	a_face.transpose_(2, 1)
+	a_lip = model_ms.img_forward(a_face)
 
-		# backward
-		self.model.zero_grad()
-		loss = self.__compute_loss(a_pred, label)
-		loss.backward()
+	new_idx = get_rand_idx(args.batch_size)
+	a_wav = a_wav[new_idx, :]
+	a_voice = model_ms.snd_forward(a_wav)
 
-		# generate CAM
-		grads_val = self.grads[0].cpu().data.numpy().squeeze()
-		fmap = self.fmaps[0].cpu().data.numpy().squeeze()
-		cam_list = self.__my_compute_cam(fmap, grads_val)
-		org_list = []
-		for i in range(len(cam_list)):
-			cam_list[i] = cv2.resize(cam_list[i], self.origin_size)
-			org_list.append(vid_arr[i].astype(np.float32)/255)
-		self.__my_show_cam_on_image(org_list, cam_list, output_name)
+	label_gt = get_gt_label(a_wid, new_idx).to(run_device)
+	label_pred = model_ms.merge_forward(img_feature=a_lip, snd_feature=a_voice)
+	return label_gt, label_pred
 
-		self.fmaps.clear()
-		self.grads.clear()
 
-	def __img_transform(self, img_arr: np.ndarray, transform: torchvision.transforms) -> torch.Tensor:
-		img = img_arr.copy()  # [H, W, C]
-		img = Image.fromarray(np.uint8(img))
-		img = transform(img).unsqueeze(0)  # [N,C,H,W]
-		return img
+def evaluate(model_ms, criterion_class, loader, args):
+	with torch.no_grad():
+		model_ms.eval()
+		criterion_class.eval()
 
-	def __img_preprocess(self, img_in: np.ndarray) -> torch.Tensor:
-		self.origin_size = (img_in.shape[1], img_in.shape[0])  # [H, W, C]
-		img = img_in.copy()
-		img = cv2.resize(img, self.size)
-		img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-		transform = transforms.Compose([
-			transforms.ToTensor(),
-			transforms.Normalize(self.mean, self.std)
-		])
-		img_tensor = self.__img_transform(img, transform)
-		return img_tensor
+		val_loss_class = Meter('Class Loss', 'avg', ':.4f')
+		val_loss_final = Meter('Final Loss', 'avg', ':.4f')
+		val_acc_class = Meter('Class ACC', 'avg', ':.2f', '%,')
+		val_timer = Meter('Time', 'time', ':3.0f')
+		val_timer.set_start_time(time.time())
 
-	def __backward_hook(self, module, grad_in, grad_out):
-		self.grads.append(grad_out[0].detach())
+		print('\tEvaluating Result:')
+		for data in loader:
+			# label_gt, label_pred = lrw_run(model_ms, data, args)
+			label_gt, label_pred = lab_run(model_ms, data, args)
 
-	def __forward_hook(self, module, input, output):
-		self.fmaps.append(output)
+			# ======================计算唇部特征单词分类损失===========================
+			loss_class = criterion_class(label_pred, label_gt)
+			correct_num_class = torch.sum(torch.argmax(label_pred, dim=1) == label_gt).item()
 
-	def __compute_loss(self, logit, index=None):
-		if not index:
-			index = np.argmax(logit.cpu().data.numpy())
-		else:
-			index = np.array(index)
+			loss_final = loss_class
 
-		index = index[np.newaxis, np.newaxis]
-		index = torch.from_numpy(index)
-		one_hot = torch.zeros(1, self.num_cls).scatter_(1, index, 1)
-		one_hot.requires_grad = True
-		loss = torch.sum(one_hot*logit)
-		return loss
+			# ==========计量更新============================
+			val_acc_class.update(correct_num_class*100/len(label_gt))
+			val_loss_class.update(loss_class.item())
+			val_loss_final.update(loss_final.item())
+			val_timer.update(time.time())
+			print(f'\r\tBatch:{val_timer.count:04d}/{len(loader):04d}  {val_timer}{val_loss_final}',
+			      f'{val_acc_class} EMA ACC: {val_acc_class.avg_ema:.2f}%, ',
+			      f'{val_loss_class}',
+			      sep='', end='     ')
 
-	def __compute_cam(self, feature_map, grads):
-		"""
-		feature_map: np.array [C, H, W]
-		grads: np.array, [C, H, W]
-		return: np.array, [H, W]
-		"""
-		cam = np.zeros(feature_map.shape[1:], dtype=np.float32)
-		alpha = np.mean(grads, axis=(1, 2))  # GAP
-		for k, ak in enumerate(alpha):
-			cam += ak*feature_map[k]  # linear combination
-
-		cam = np.maximum(cam, 0)  # relu
-		cam = cv2.resize(cam, self.size)
-		cam = (cam-np.min(cam))/np.max(cam)
-		return cam
-
-	def __my_compute_cam(self, feature_map, grads):
-		"""
-		feature_map: np.array [T, C, H, W]
-		grads: np.array, [T, C, H, W]
-		return: np.array, [T, H, W]
-		"""
-		time_length = feature_map.shape[0]
-		cam_list = []
-		for i in range(time_length):
-			cam = np.zeros(feature_map.shape[2:], dtype=np.float32)
-			alpha = np.mean(grads, axis=(2, 3))  # GAP
-			for k, ak in enumerate(alpha):
-				cam += ak*feature_map[i, k]  # linear combination
-
-			cam = np.maximum(cam, 0)  # relu
-			cam = cv2.resize(cam, self.size)
-			cam = (cam-np.min(cam))/np.max(cam)
-			cam_list.append(cam)
-		return cam_list
-
-	def __show_cam_on_image(self, img: np.ndarray, mask: np.ndarray, if_show=True, if_write=False):
-		heatmap = cv2.applyColorMap(np.uint8(255*mask), cv2.COLORMAP_JET)
-		heatmap = np.float32(heatmap)/255
-		cam = heatmap+np.float32(img)
-		cam = cam/np.max(cam)
-		cam = np.uint8(255*cam)
-		if if_write:
-			cv2.imwrite("camcam.jpg", cam)
-		if if_show:
-			# 要显示RGB的图片，如果是BGR的 热力图是反过来的
-			plt.imshow(cam[:, :, ::-1])
-			plt.show()
-
-	def __my_show_cam_on_image(self, img: list, mask: list, output_name='out/camcam.mp4'):
-		time_length = len(mask)
-		video = cv2.VideoWriter(output_name, cv2.VideoWriter_fourcc('M', 'J', 'P', 'G'), 25, self.origin_size)
-		for i in range(time_length):
-			heatmap = cv2.applyColorMap(np.uint8(255*mask[i]), cv2.COLORMAP_JET)
-			heatmap = np.float32(heatmap)/255
-			cam = heatmap+np.float32(img)
-			cam = cam/np.max(cam)
-			cam = np.uint8(255*cam)
-			video.write(cam)
-		video.release()
+		model_ms.train()
+		criterion_class.train()
+		val_log = {'val_loss_class': val_loss_class.avg,
+		           'val_loss_final': val_loss_final.avg,
+		           'val_acc_class': val_acc_class.avg}
+		return val_log
 
 
 def main():
+	# ===========================参数设定===============================
 	args = TrainOptions('config/sync_multisensory.yaml').parse()
+	start_epoch = 0
+	batch_size = args.batch_size
+	torch.backends.cudnn.benchmark = args.gpu
+	run_device = torch.device("cuda:0" if args.gpu else "cpu")
+
+	cur_exp_path = os.path.join(args.exp_dir, args.exp_num)
+	cache_dir = os.path.join(cur_exp_path, 'cache')
+	if not os.path.exists(cache_dir):
+		os.makedirs(cache_dir)
+	path_train_log = os.path.join(cur_exp_path, 'train.log')
+
+	# ============================WandB日志=============================
+	if args.wandb:
+		wandb.init(project=args.project_name, config=args,
+		           name=args.exp_num, group=args.exp_num)
+
+	# ============================模型载入===============================
+	print('%sStart loading model%s'%('='*20, '='*20))
+	# model_yolo = yolo_model(cfg='config/yolov5s.yaml').float().fuse().eval()
+	# model_yolo.load_state_dict(torch.load('pretrain_model/raw_yolov5s.pt'))
+	# model_yolo.to(run_device)
+
 	model_ms = MultiSensory(sound_rate=16000, image_fps=25)
-	grad_cam = GradCAM(model_ms, 'img_block0', (224, 224), 2, [0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
+	model_list = [model_ms]
+	for model_iter in model_list:
+		model_iter.to(run_device)
+		model_iter.train()
 
-	train_loader = LabDataLoader(args.train_list, args.batch_size,
-	                             num_workers=args.num_workers,
-	                             tgt_frame_num=args.tgt_frame_num,
-	                             tgt_fps=args.tgt_fps,
-	                             resolution=args.img_size,
-	                             wav_hz=16000,
-	                             avspeech_flag=args.tmp_flag,
-	                             is_train=True, )
-	valid_loader = LabDataLoader(args.val_list, args.batch_size,
-	                             num_workers=args.num_workers,
-	                             tgt_frame_num=args.tgt_frame_num,
-	                             tgt_fps=args.tgt_fps,
-	                             resolution=args.img_size,
-	                             wav_hz=16000,
-	                             avspeech_flag=args.tmp_flag,
-	                             is_train=False, )
+	optim_ms = optim.Adam(model_ms.parameters(), lr=args.sync_lr, betas=(0.9, 0.999))
+	criterion_class = nn.CrossEntropyLoss()
+	sch_ms = optim.lr_scheduler.ExponentialLR(optim_ms, gamma=args.sync_gamma)
+	tosave_list = [
+		'model_ms',
+		'optim_ms',
+		'sch_ms',
+	]
+	if args.wandb:
+		for model_iter in model_list:
+			wandb.watch(model_iter)
 
-	for data in train_loader:
-		a_img, a_wav_match = data
-		grad_cam.my_forward(a_img, a_wav_match, label=(0, 1), output_name='out/match.mp4')
+	# ============================度量载入===============================
+	epoch_loss_class = Meter('Class Loss', 'avg', ':.4f')
+	epoch_loss_final = Meter('Final Loss', 'avg', ':.4f')
+	epoch_acc_sync = Meter('Class ACC', 'avg', ':.2f', '%, ')
+	epoch_timer = Meter('Time', 'time', ':4.0f')
+
+	epoch_reset_list = [
+		epoch_loss_final, epoch_loss_class,
+		epoch_acc_sync,
+		epoch_timer,
+	]
+	if args.mode in ('train', 'continue'):
+		print('Train Parameters')
+		for key, value in args.__dict__.items():
+			print(f'{key:18}:\t{value}')
+		print('')
+
+	# ============================数据载入===============================
+	loader_timer = Meter('Time', 'time', ':3.0f', end='')
+	print('%sStart loading dataset%s'%('='*20, '='*20))
+	loader_timer.set_start_time(time.time())
+	# train_loader = LRWDataLoader(args.train_list, batch_size,
+	#                              num_workers=args.num_workers,
+	#                              n_mfcc=args.n_mfcc,
+	#                              resolution=args.img_size,
+	#                              seq_len=args.seq_len,
+	#                              is_train=True, max_size=0)
+	#
+	# valid_loader = LRWDataLoader(args.val_list, batch_size,
+	#                              num_workers=args.num_workers,
+	#                              n_mfcc=args.n_mfcc,
+	#                              resolution=args.img_size,
+	#                              seq_len=args.seq_len,
+	#                              is_train=True, max_size=0)
+	train_loader = LRWFaceDataLoader(args.train_list, batch_size,
+	                                 num_workers=args.num_workers,
+	                                 n_mfcc=args.n_mfcc,
+	                                 resolution=args.face_size,
+	                                 seq_len=args.seq_len,
+	                                 is_train=True, max_size=0)
+
+	valid_loader = LRWFaceDataLoader(args.val_list, batch_size,
+	                                 num_workers=args.num_workers,
+	                                 n_mfcc=args.n_mfcc,
+	                                 resolution=args.face_size,
+	                                 seq_len=args.seq_len,
+	                                 is_train=True, max_size=0)
+	# train_loader = LabDataLoader(args.train_list, batch_size,
+	#                              num_workers=args.num_workers,
+	#                              seq_len=args.seq_len,
+	#                              resolution=args.img_size,
+	#                              is_train=True, max_size=0)
+	# valid_loader = LabDataLoader(args.val_list, batch_size,
+	#                              num_workers=args.num_workers,
+	#                              seq_len=args.seq_len,
+	#                              resolution=args.img_size,
+	#                              is_train=False, max_size=0)
+	loader_timer.update(time.time())
+	print(f'Batch Num in Train Loader: {len(train_loader)}')
+	print(f'Finish loading dataset {loader_timer}')
+
+	# ========================预加载模型================================
+	if args.mode.lower() in ['test', 'valid', 'eval', 'val', 'evaluate']:
+		del train_loader
+		model_ckpt = torch.load(args.pretrain_model)
+		for item_str in tosave_list:
+			item_model = locals()[item_str]
+			item_model.load_state_dict(model_ckpt[item_str])
+		del model_ckpt
+		print(f'\n{"="*20}Start Evaluating{"="*20}')
+		if args.mode.lower() in ['valid', 'val', 'eval', 'evaluate']:
+			evaluate(model_ms,
+			         criterion_class,
+			         valid_loader, args)
+		else:
+			del valid_loader
+			test_loader = LRWDataLoader(args.test_list, batch_size,
+			                            num_workers=args.num_workers,
+			                            n_mfcc=args.n_mfcc,
+			                            resolution=args.img_size,
+			                            seq_len=args.seq_len,
+			                            is_train=False, max_size=0)
+			evaluate(model_ms,
+			         criterion_class,
+			         test_loader, args)
+		print(f'\n\nFinish Evaluation\n\n')
+		return
+	elif args.mode.lower() in ['continue']:
+		print('Loading pretrained model', args.pretrain_model)
+		model_ckpt = torch.load(args.pretrain_model)
+		for item_str in tosave_list:
+			if item_str in model_ckpt.keys():
+				item_model = locals()[item_str]
+				item_model.load_state_dict(model_ckpt[item_str])
+		start_epoch = model_ckpt['epoch']
+		file_train_log = open(path_train_log, 'a')
+	elif args.mode.lower() in ['train']:
+		file_train_log = open(path_train_log, 'w')
+		if args.pretrain_model is not None:
+			model_ckpt = torch.load(args.pretrain_model)
+			for item_str in tosave_list:
+				if item_str in model_ckpt.keys():
+					item_model = locals()[item_str]
+					item_model.load_state_dict(model_ckpt[item_str])
+					print(f'已加载预训练模型{item_str}')
+	else:
+		raise Exception(f"未定义训练模式{args.mode}")
+
+	print('Train Parameters', file=file_train_log)
+	for key, value in args.__dict__.items():
+		print(f'{key:18}:\t{value}', file=file_train_log)
+	print('\n', file=file_train_log)
+
+	# ============================开始训练===============================
+	print('%sStart Training%s'%('='*20, '='*20))
+	for epoch in range(start_epoch, args.epoch):
+		print('\nEpoch: %d'%epoch)
+		batch_cnt = 0
+		epoch_timer.set_start_time(time.time())
+		for data in train_loader:
+			label_gt, label_pred = lrw_run(model_ms, data, args)
+			# label_gt, label_pred = lrw_crop_run(model_ms, model_yolo, data, args)
+			# label_gt, label_pred = lab_run(model_ms, data, args)
+			# label_gt, label_pred = lab_crop_run(model_ms, model_yolo, data, args)
+
+			# ======================计算唇部特征单词分类损失===========================
+			loss_class = criterion_class(label_pred, label_gt)
+			correct_num_class = torch.sum(torch.argmax(label_pred, dim=1) == label_gt).item()
+
+			# ==========================反向传播===============================
+			optim_ms.zero_grad()
+			loss_final = loss_class
+			loss_final.backward()
+			optim_ms.step()
+
+			# ==========计量更新============================
+			epoch_acc_sync.update(correct_num_class*100/len(label_gt))
+			epoch_loss_class.update(loss_class.item())
+			epoch_loss_final.update(loss_final.item())
+			epoch_timer.update(time.time())
+			batch_cnt += 1
+			print(f'\rBatch:{batch_cnt:04d}/{len(train_loader):04d}  {epoch_timer}{epoch_loss_final}',
+			      f'{epoch_acc_sync}EMA ACC: {epoch_acc_sync.avg_ema:.2f}%, ',
+			      f'{epoch_loss_class}',
+			      sep='', end='     ')
+
+		sch_ms.step()
+		print('')
+		print(f'Current Model M2V Learning Rate is {sch_ms.get_last_lr()}')
+		log_dict = {'epoch': epoch,
+		            epoch_loss_final.name: epoch_loss_final.avg,
+		            epoch_loss_class.name: epoch_loss_class.avg,
+		            epoch_acc_sync.name: epoch_acc_sync.avg}
+		for meter in epoch_reset_list:
+			meter.reset()
+
+		# =======================保存模型=======================
+		if args.gpu:
+			torch.cuda.empty_cache()
+
+		if (epoch+1)%args.save_step == 0:
+			ckpt_dict = {'epoch': epoch+1}
+			for item_str in tosave_list:
+				item_model = locals()[item_str]
+				ckpt_dict.update({item_str: item_model.state_dict()})
+			print(f'save model to {cache_dir+"/model%09d.model"%epoch}')
+			torch.save(ckpt_dict, cache_dir+"/model%09d.model"%epoch)
+
+		# ===========================验证=======================
+		if args.valid_step>0 and (epoch+1)%args.valid_step == 0:
+			try:
+				log_dict.update(evaluate(model_ms, criterion_class, valid_loader, args))
+			except:
+				print('Evaluating Error')
+
+		if args.wandb:
+			wandb.log(log_dict)
+		print(log_dict, file=file_train_log)
+		torch.cuda.synchronize()
+		torch.cuda.empty_cache()
+	file_train_log.close()
+	if args.wandb:
+		wandb.finish()
 
 
-# 调用函数
 if __name__ == '__main__':
+	# with torch.autograd.set_detect_anomaly(True):
+	torch.multiprocessing.set_start_method('spawn')
 	main()

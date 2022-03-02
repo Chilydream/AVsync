@@ -42,6 +42,7 @@ class GradCAM:
 
 	def forward(self, vid_tchw, wav_tensor, label=None, output_name='out/camcam.mp4'):
 		# forward
+		self.origin_time = vid_tchw.shape[1]
 		vid_cthw = vid_tchw.transpose(2, 1)
 		a_lip = self.model.img_forward(vid_cthw)
 		a_wav = self.model.snd_forward(wav_tensor)
@@ -52,6 +53,7 @@ class GradCAM:
 		vid_arr = vid_tchw.squeeze(0).numpy()
 		self.model.zero_grad()
 		loss = self.__compute_loss(a_pred, label)
+		print(a_pred[0, 1]>a_pred[0, 0])
 		loss.backward()
 
 		# generate CAM
@@ -93,8 +95,6 @@ class GradCAM:
 		grads: np.array, [C, T, H, W]
 		return: np.array, [T, H, W]
 		"""
-		print(grads.shape)
-		print(feature_map.shape)
 		grads = grads.transpose((1, 0, 2, 3))
 		feature_map = feature_map.transpose((1, 0, 2, 3))
 		time_length = feature_map.shape[0]
@@ -109,8 +109,17 @@ class GradCAM:
 			cam = cv2.resize(cam, self.size)
 			cam = (cam-np.min(cam))/np.max(cam)
 			cam_list.append(cam)
-			cam_list.append(cam)
-		return cam_list
+		j = 0
+		frag = self.origin_time*1.0/(time_length-1)
+		final_cam_list = []
+		for i in range(time_length-1):
+			while j<frag*(i+1):
+				left_dist = (j-frag*i)/frag
+				cam = left_dist*cam_list[i] + (1-left_dist)*cam_list[i+1]
+				final_cam_list.append(cam)
+				j += 1
+
+		return final_cam_list
 
 	def __show_cam_on_image(self, img_list: list, mask_list: list, output_name='out/camcam.mp4'):
 		time_length = len(mask_list)
@@ -143,7 +152,15 @@ def main():
 	                             wav_hz=16000,
 	                             avspeech_flag=args.tmp_flag,
 	                             is_train=False, )
-	valid_loader = LabDataLoader(args.val_list, 1,
+	# valid_loader = LabDataLoader(args.val_list, 1,
+	#                              num_workers=args.num_workers,
+	#                              tgt_frame_num=args.tgt_frame_num,
+	#                              tgt_fps=args.tgt_fps,
+	#                              resolution=args.img_size,
+	#                              wav_hz=16000,
+	#                              avspeech_flag=args.tmp_flag,
+	#                              is_train=False, )
+	test_loader = LabDataLoader(args.test_list, 1,
 	                             num_workers=args.num_workers,
 	                             tgt_frame_num=args.tgt_frame_num,
 	                             tgt_fps=args.tgt_fps,
@@ -152,11 +169,18 @@ def main():
 	                             avspeech_flag=args.tmp_flag,
 	                             is_train=False, )
 
+	for idx, data in enumerate(test_loader):
+		a_img, a_wav_match = data
+		grad_cam.forward(a_img, a_wav_match, label=1, output_name=f'out/LRW_match_{idx}.mp4')
+		if idx>=9:
+			break
+	wav_mis = None
 	for idx, data in enumerate(train_loader):
 		a_img, a_wav_match = data
-		grad_cam.forward(a_img, a_wav_match, label=1, output_name=f'out/train_match_{idx}.mp4')
-		grad_cam.forward(a_img, a_wav_match, label=0, output_name=f'out/train_mis_{idx}.mp4')
-		if idx>=4:
+		if wav_mis is None:
+			wav_mis = a_wav_match
+		grad_cam.forward(a_img, a_wav_match, label=0, output_name=f'out/lab_match_{idx}.mp4')
+		if idx>=9:
 			break
 
 

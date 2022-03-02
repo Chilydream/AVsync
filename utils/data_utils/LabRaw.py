@@ -56,7 +56,7 @@ class LabDataset(Dataset):
 						is_talk, filename, video_time = items
 						video_time = float(video_time)
 						if os.path.exists(filename):
-							if video_time>=2:
+							if video_time>=tgt_frame_num*1.0/tgt_fps:
 								self.file_list.append(filename)
 								self.length_list.append(video_time)
 
