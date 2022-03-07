@@ -1,3 +1,4 @@
+import cv2
 import torch
 import numpy as np
 import random
@@ -9,55 +10,88 @@ from queue import Queue
 from torch.utils.data.dataset import Dataset
 from torch.utils.data import DataLoader
 
-from utils.GetDataFromFile import get_mfcc, get_frame_tensor, get_wav
+from utils.GetDataFromFile import get_frame_and_wav_cv2, get_video_time
 
 
 class LabDataset(Dataset):
-	def __init__(self, dataset_file, max_size, seq_len=0):
+	def __init__(self, dataset_file,
+	             tgt_frame_num, tgt_fps, resolution,
+	             wav_hz,
+	             avspeech_flag=False):
 		super(LabDataset, self).__init__()
-		if isinstance(dataset_file, str):
-			self.dataset_file_name = [dataset_file]
-		else:
-			self.dataset_file_name = dataset_file
-		self.seq_len = seq_len
-		self.max_size = max_size
-		self.silent_file = []
-		self.speak_file = []
+		self.dataset_file_name = dataset_file
+		self.tgt_frame_num = tgt_frame_num
+		self.tgt_fps = tgt_fps
+		self.wav_hz = wav_hz
+		self.resolution = resolution
+		self.file_list = []
+		self.length_list = []
+		self.nfile = 0
 
-		for metafile in self.dataset_file_name:
-			with open(metafile) as fr:
-				for idx, line in enumerate(fr.readlines()):
-					items = line.strip().split('\t')
-					if items[0] == '0':
-						self.silent_file.append(items[1])
-					else:
-						self.speak_file.append(items[1])
-		self.n_silent = len(self.silent_file)
-		self.n_speak = len(self.speak_file)
-		self.nfile = self.n_silent+self.n_speak
+		with open(dataset_file) as fr:
+			lines = fr.readlines()
+			for idx, line in enumerate(lines):
+				items = line.strip().split('\t')
+				if avspeech_flag:
+					filename = items[0]
+					if os.path.exists(filename):
+						self.file_list.append(filename)
+						# SeTlgy7GVXU_004.605000-009.243000.mp4
+						# 012345678901234567890123456789012
+						# time_length = float(filename[23:33])-float(filename[12:22])
+						time_length = float(filename[55:65])-float(filename[44:54])
+						self.length_list.append(time_length)
+				else:
+					if len(items) == 1:
+						filename = items[0]
+						if os.path.exists(filename):
+							self.file_list.append(filename)
+							self.length_list.append(get_video_time(filename))
+					elif len(items) == 2:
+						is_talk, filename = items
+						if is_talk != '0':
+							self.file_list.append(filename)
+							self.length_list.append(get_video_time(filename))
+					elif len(items) == 3:
+						is_talk, filename, video_time = items
+						video_time = float(video_time)
+						if os.path.exists(filename):
+							if video_time>=tgt_frame_num*1.0/tgt_fps:
+								self.file_list.append(filename)
+								self.length_list.append(video_time)
+
+		self.nfile = len(self.file_list)
+		print(self.nfile)
 
 	def __getitem__(self, item):
-		if item<self.n_silent:
-			mp4_name = self.silent_file[item]
-			is_speak = -1
-		else:
-			mp4_name = self.speak_file[item-self.n_silent]
-			is_speak = 1
-		frame_tensor = get_frame_tensor(mp4_name, self.seq_len, resolution=256)
-		return frame_tensor, is_speak
+		mp4_name = self.file_list[item]
+		img_tensor, wav_tensor = get_frame_and_wav_cv2(filename=mp4_name,
+		                                               tgt_frame_num=self.tgt_frame_num,
+		                                               tgt_fps=self.tgt_fps,
+		                                               resolution=self.resolution,
+		                                               wav_hz=self.wav_hz,
+		                                               total_time=self.length_list[item])
+		return img_tensor, wav_tensor
 
 	def __len__(self):
-		if self.max_size<=0:
-			return self.nfile
-		return min(self.nfile, self.max_size)
+		return self.nfile
 
 
 class LabDataLoader(DataLoader):
-	def __init__(self, dataset_file, batch_size, num_workers, seq_len=16, is_train=True, max_size=0):
+	def __init__(self, dataset_file, batch_size, num_workers,
+	             tgt_frame_num, tgt_fps, resolution,
+	             wav_hz=16000,
+	             avspeech_flag=False,
+	             is_train=True):
 		self.dataset_file = dataset_file
-		self.dataset = LabDataset(dataset_file, max_size, seq_len)
+		self.dataset = LabDataset(dataset_file=dataset_file,
+		                          tgt_frame_num=tgt_frame_num,
+		                          tgt_fps=tgt_fps,
+		                          resolution=resolution,
+		                          wav_hz=wav_hz,
+		                          avspeech_flag=avspeech_flag
+		                          )
 		self.num_workers = num_workers
 		self.batch_size = batch_size
-		self.max_size = max_size
-		super().__init__(self.dataset, shuffle=is_train, batch_size=batch_size,
+		super().__init__(dataset=self.dataset, shuffle=is_train, batch_size=batch_size,
 		                 drop_last=True, num_workers=num_workers)

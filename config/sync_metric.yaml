@@ -1,7 +1,7 @@
-project_name: "Lip to Text"
+project_name: "Audio Video Synchronization"
 mode: "train"
 pretrain_model: ~
-exp_dir: "exp_l2t"
+exp_dir: "exp_train"
 exp_num: "000"
 save_step: 1
 valid_step: 0
@@ -9,14 +9,15 @@ valid_step: 0
 epoch: 1000
 batch_size: 8
 num_workers: 12
-stride: 4
-img2lip_lr: 0.00005
+img2lip_lr: 0.0001
 img2lip_gamma: 0.99
-lip2t_lr: 0.00005
-lip2t_gamma: 0.99
+wav2v_lr: 0.0001
+wav2v_gamma: 0.99
+sync_lr: 0.0003
+sync_gamma: 0.99
 gpu: True
 wandb: False
-ddp_flag: False
+batch_first: True
 
 class_lambda: 5.0
 triplet_lambda: 1.0
@@ -24,8 +25,15 @@ triplet_lambda: 1.0
 train_list: "metadata/LRW_train_3090.txt"
 val_list: "metadata/LRW_val_3090.txt"
 test_list: "metadata/LRW_test_3090.txt"
+resolution: 256
+img_resolution: 128
+face_resolution: 128
 max_size: 0
-resolution: 0
 lip_emb: 256
+voice_emb: 256
 lmk_emb: 40
+n_mfcc: 0
+seq_len: 29
 triplet_margin: 1.0
+margin: 1.0
+stride: 2

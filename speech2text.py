@@ -4,6 +4,7 @@ import platform
 import time
 import numpy as np
 import torch
+import torchsnooper
 from torch import nn
 import torch.nn.functional as F
 import torch.optim as optim
@@ -12,7 +13,7 @@ import wandb
 import sys
 
 from model.Voice2TModel import Voice2T_fc_Model
-from model.VGGModel import VGGVoice
+from model.VGGModel import VGG6_speech
 from utils.tensor_utils import PadSquare
 
 sys.path.append('/root/ChineseDataset/AVsync/third_party/yolo')
@@ -38,22 +39,18 @@ def evaluate(model_wav2v, model_s2t, criterion, loader, args):
 		wid_label = data[1]
 		mfcc_data = data[0].to(run_device)
 		voice_data = model_wav2v(mfcc_data)
-		if not args.batch_first:
-			# voice_data = (seq,batch,voice_emb)
-			voice_data.transpose_(1, 0)
-
 		label_pred = model_s2t(voice_data)
 		label_gt = wid_label.to(run_device)
 
 		# ======================计算音脸匹配损失===========================
 		loss_class = criterion(label_pred, label_gt)
-		acc_avmatch = torch.sum(torch.argmax(label_pred, dim=1, keepdim=False)==label_gt).item()
+		acc_avmatch = torch.sum(torch.argmax(label_pred, dim=1, keepdim=False) == label_gt).item()
 		loss_final = loss_class
 
 		# ===========================更新度量==============================
 		val_loss_class.update(loss_class.item())
 		val_loss_final.update(loss_final.item())
-		val_acc_class.update(acc_avmatch*100/args.batch_size)
+		val_acc_class.update(acc_avmatch*100/label_gt.shape[0])
 		val_timer.update(time.time())
 		print(f'\r\t{val_timer}{val_loss_final}{val_acc_class}',
 		      end='     ')
@@ -63,12 +60,12 @@ def evaluate(model_wav2v, model_s2t, criterion, loader, args):
 	return val_log
 
 
+# @torchsnooper.snoop()
 def main():
 	# ===========================参数设定===============================
 	args = TrainOptions('config/speech2text.yaml').parse()
 	start_epoch = 0
 	batch_size = args.batch_size
-	batch_first = args.batch_first
 	torch.backends.cudnn.benchmark = args.gpu
 	run_device = torch.device("cuda:0" if args.gpu else "cpu")
 
@@ -80,12 +77,12 @@ def main():
 
 	# ============================WandB日志=============================
 	if args.wandb:
-		wandb.init(project=args.project_name, config=args)
+		wandb.init(project=args.project_name, config=args,
+		           name=args.exp_num, group=args.exp_num)
 
 	# ============================模型载入===============================
 	print('%sStart loading model%s'%('='*20, '='*20))
-	model_wav2v = VGGVoice(n_out=args.voice_emb, n_mfcc=args.n_mfcc)
-	# model_v2t = V2T_lstm_Model(args.voice_emb, n_class=500)
+	model_wav2v = VGG6_speech(n_out=args.voice_emb, n_mfcc=args.n_mfcc)
 	model_v2t = Voice2T_fc_Model(args.voice_emb, n_class=500)
 	model_list = [model_wav2v, model_v2t]
 	for model_iter in model_list:
@@ -188,13 +185,14 @@ def main():
 			optim_v2t.step()
 
 			# ==========计量更新============================
-			epoch_acc_class.update(batch_acc_class*100/batch_size)
+			epoch_acc_class.update(batch_acc_class*100/label_gt.shape[0])
 			epoch_loss_class.update(loss_class.item())
 			epoch_loss_final.update(batch_loss_final.item())
 			epoch_timer.update(time.time())
 			batch_cnt += 1
-			print(f'\rBatch:{batch_cnt:04d}/{len(train_loader):04d}  {epoch_timer}{epoch_loss_final}{epoch_acc_class}',
-			      f' EMA Accuracy: {epoch_acc_class.avg_ema:.2f}%', sep='', end='     ')
+			print(f'\rBatch:{batch_cnt:04d}/{len(train_loader):04d}  ',
+			      f'{epoch_timer}{epoch_loss_final}{epoch_acc_class}',
+			      f' EMA ACC: {epoch_acc_class.avg_ema:.2f}% ', sep='', end='     ')
 
 		sch_wav2v.step()
 		sch_v2t.step()

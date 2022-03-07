@@ -17,21 +17,23 @@ def topk_acc(score_mat, label, k=1):
 	return correct_cnt/total_cnt
 
 
-def get_new_idx(batch_size):
-	new_idx = np.arange(0, batch_size)
-	np.random.shuffle(new_idx)
-	# new_idx[:batch_size//2] = range(batch_size//2)
-	# 半个 batch的是匹配的音脸，另外半个随机
-	return new_idx
-
-
 def get_rand_idx(batch_size):
-	a = np.random.randint(0, 2)
+	# a = np.random.randint(0, 5)
+	# new_idx = np.arange(0, batch_size)
+	# tmp_idx = np.arange(0, batch_size)
+	# if a == 0:
+	# 	new_idx[:batch_size//2] = new_idx[batch_size//2:]
+	# elif a == 1:
+	# 	new_idx[batch_size//2:] = new_idx[:batch_size//2]
+	# elif a == 2:
+	# 	new_idx[:batch_size//2] = tmp_idx[batch_size//2:]
+	# 	new_idx[batch_size//2:] = tmp_idx[:batch_size//2]
+	# elif a == 3:
+	# 	np.random.shuffle(new_idx)
 	new_idx = np.arange(0, batch_size)
-	if a == 0:
-		new_idx[:batch_size//2] = new_idx[batch_size//2:]
-	else:
-		new_idx[batch_size//2:] = new_idx[:batch_size//2]
+	for i in range(batch_size):
+		if np.random.randint(0, 2)==0:
+			new_idx[i] = np.random.randint(0, batch_size)
 	return new_idx
 
 

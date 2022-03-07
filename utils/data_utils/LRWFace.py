@@ -8,13 +8,15 @@ import time
 from queue import Queue
 from torch.utils.data.dataset import Dataset
 from torch.utils.data import DataLoader
+import torchvision.transforms as transforms
 
 from utils.GetDataFromFile import get_mfcc, get_frame_tensor, get_wav
+from utils.tensor_utils import PadSquare
 
 
-class LRWDataset(Dataset):
+class LRWFaceDataset(Dataset):
 	def __init__(self, dataset_file, n_mfcc, seq_len, resolution, max_size):
-		super(LRWDataset, self).__init__()
+		super().__init__()
 		self.dataset_file_name = dataset_file
 		self.n_mfcc = n_mfcc
 		self.seq_len = seq_len
@@ -55,27 +57,23 @@ class LRWDataset(Dataset):
 		self.nword = wid+1
 		self.nfile = len(self.file_list)
 		self.word_accumulate.append(self.nfile)
+		self.pad_resize = transforms.Compose([PadSquare(),
+		                                      transforms.Resize(resolution)])
 
 	def __getitem__(self, item):
 		mp4_name = self.file_list[item]
 		wav_name = mp4_name[:-3]+'wav'
-		lmk_name = mp4_name[:-3]+'lmk'
-		if self.n_mfcc <= 0:
+		face_name = mp4_name.replace('/home/tliu/fsx', '/hdd1').replace('mp4', 'face')
+		if self.n_mfcc<=0:
 			a_wav = get_wav(filename=wav_name)
 		else:
 			a_wav = get_mfcc(filename=wav_name,
 			                 n_mfcc=self.n_mfcc)
 
-		if self.resolution>=0:
-			a_img = get_frame_tensor(filename=mp4_name,
-			                         seq_len=self.seq_len,
-			                         resolution=self.resolution)
-		else:
-			a_img = torch.load(lmk_name)
-			avg_lmk = torch.mean(a_img, dim=(0, 1))
-			std_lmk = torch.std(a_img, dim=(0, 1))
-			a_img = (a_img-avg_lmk)/std_lmk
-			a_img = torch.flatten(a_img[:, 48:68, :], start_dim=1)
+		a_img = torch.load(face_name)
+		if self.resolution>0:
+			a_img = self.pad_resize(a_img)
+
 		return a_wav, a_img, self.id2wid[item]
 
 	def get_rand_id_from_wid(self, wid):
@@ -90,15 +88,15 @@ class LRWDataset(Dataset):
 		return min(self.max_size, self.nfile)
 
 
-class LRWDataLoader(DataLoader):
+class LRWFaceDataLoader(DataLoader):
 	def __init__(self, dataset_file, batch_size, num_workers, n_mfcc, seq_len, resolution, is_train=True, max_size=0):
 		# todo: max_size不为0时，似乎不会进行shuffle，有待解决
 		self.dataset_file = dataset_file
-		self.dataset = LRWDataset(dataset_file=dataset_file,
-		                          n_mfcc=n_mfcc,
-		                          seq_len=seq_len,
-		                          resolution=resolution,
-		                          max_size=max_size)
+		self.dataset = LRWFaceDataset(dataset_file=dataset_file,
+		                              n_mfcc=n_mfcc,
+		                              seq_len=seq_len,
+		                              resolution=resolution,
+		                              max_size=max_size)
 		self.num_workers = num_workers
 		self.batch_size = batch_size
 		self.max_size = max_size

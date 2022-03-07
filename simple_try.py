@@ -1,25 +1,22 @@
 import os
-import multiprocessing
-import sys
-import torch
-import tqdm
+import glob
+import shutil
+import cv2
+import numpy as np
+import scipy.io.wavfile as wavf
+from utils.GetDataFromFile import get_frame_and_wav_cv2
+from utils.extract_wav import extract_wav
 
-sys.path.append('/home/tliu/fsx/project/AVsync/third_party/yolo')
-sys.path.append('/home/tliu/fsx/project/AVsync/third_party/HRNet')
+time_length = 7
+origin_time = 50
+frag = origin_time/(time_length-1)
+final_list = []
+j = 0
+for i in range(time_length-1):
+	while j<=frag*(i+1):
+		left_dist = (j-frag*i)/frag
+		final_list.append(i+left_dist)
+		j += 1
 
-from third_party.HRNet.utils_inference import get_model_by_name
-from utils.GetConsoleArgs import TrainOptions
-from utils.extract_lmk import extract_lmk
-
-args = TrainOptions('config/lmk2text.yaml').parse()
-run_device = torch.device("cuda" if args.gpu else "cpu")
-model_hrnet = get_model_by_name('300W', root_models_path='pretrain_model')
-model_hrnet = model_hrnet.to(run_device).eval()
-
-with open('metadata/LRW_test_3090.txt', 'r') as fr:
-	lines = fr.readlines()
-	for idx in range(len(lines)):
-		line = lines[idx]
-		_, mp4name = line.strip().split('\t')
-		extract_lmk(model_hrnet, mp4name, run_device)
-		print(idx)
+print(final_list)
+print(len(final_list))

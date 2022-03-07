@@ -1,39 +1,78 @@
-import math
 import os
-import platform
 import time
 import numpy as np
 import torch
 from torch import nn
-import torch.nn.functional as F
 import torch.optim as optim
 import torchvision.transforms as transforms
 import wandb
 import sys
 
-if platform.system() == "Windows":
-	sys.path.append('D:/project/AVsync/third_party/yolo')
-else:
-	sys.path.append('/root/ChineseDataset/AVsync/third_party/yolo')
-
-from model.FaceModel import FaceModel
-from model.SpeakModel import SpeakModel
-from utils.data_utils.LRWRaw import LRWDataLoader
+from model.SyncModel import SyncModel, SilenceModel
+from utils.accuracy import get_gt_label, get_rand_idx
+from utils.data_utils.LabLmk import LabLmkDataLoader
+from utils.data_utils.LabLmkWav import LabLmkWavDataLoader
 from utils.data_utils.LabRaw import LabDataLoader
+
+sys.path.append('/home/tliu/fsx/project/AVsync/third_party/yolo')
+sys.path.append('/home/tliu/fsx/project/AVsync/third_party/HRNet')
+
+from model.Lmk2LipModel import Lmk2LipModel
+from model.VGGModel import VGG6_speech
+from utils.tensor_utils import PadSquare
 from utils.GetConsoleArgs import TrainOptions
 from utils.Meter import Meter
-from utils.tensor_utils import PadSquare
-from utils.accuracy import topk_acc, get_new_idx, get_gt_label, get_rand_idx
 from third_party.yolo.yolo_models.yolo import Model as yolo_model
 from third_party.yolo.yolo_utils.util_yolo import face_detect
+from third_party.HRNet.utils_inference import get_model_by_name, get_batch_lmks
+
+
+def evaluate(model_lmk2lip, model_silence, criterion_class, loader, args):
+	run_device = torch.device("cuda:0" if args.gpu else "cpu")
+
+	val_loss = Meter('Match Class Loss', 'avg', ':.4f')
+	val_loss_final = Meter('Final Loss', 'avg', ':.4f')
+	val_acc = Meter('Match Class ACC', 'avg', ':.2f', '%, ')
+	val_timer = Meter('Time', 'time', ':3.0f')
+	val_timer.set_start_time(time.time())
+
+	print('\tEvaluating Result:')
+	for data in loader:
+		a_lmk, label_gt = data
+		a_lmk = a_lmk.to(run_device)
+		label_gt = label_gt.to(run_device)
+
+		a_lip = model_lmk2lip(a_lmk)
+		label_pred = model_silence(a_lip)
+
+		# ======================计算唇部特征单词分类损失===========================
+		loss_class = criterion_class(label_pred, label_gt)
+		correct_num = torch.sum(torch.argmax(label_pred, dim=1) == label_gt).item()
+
+		# ==========================反向传播===============================
+		loss_final = loss_class
+
+		# ==========计量更新============================
+		val_acc.update(correct_num*100/len(label_gt))
+		val_loss.update(loss_class.item())
+		val_loss_final.update(loss_final.item())
+		val_timer.update(time.time())
+		print(f'\r\tBatch:{val_timer.count:04d}/{len(loader):04d}  {val_timer}{val_loss_final}',
+		      f'{val_acc}',
+		      sep='', end='     ')
+
+	val_log = {'val_loss': val_loss.avg,
+	           'val_loss_final': val_loss_final.avg,
+	           'val_acc': val_acc.avg}
+	return val_log
 
 
 def main():
 	# ===========================参数设定===============================
-	args = TrainOptions('config/speak.yaml').parse()
+	args = TrainOptions('config/lab_silence.yaml').parse()
 	start_epoch = 0
 	batch_size = args.batch_size
-	batch_first = True
+	batch_first = args.batch_first
 	torch.backends.cudnn.benchmark = args.gpu
 	run_device = torch.device("cuda:0" if args.gpu else "cpu")
 
@@ -45,147 +84,174 @@ def main():
 
 	# ============================WandB日志=============================
 	if args.wandb:
-		wandb.init(project='Speak Silent', config=args)
+		wandb.init(project=args.project_name, config=args,
+		           name=args.exp_num, group=args.exp_num)
 
 	# ============================模型载入===============================
-	print('%sStart loading model%s'%('='*20, '='*20))
-	model_face = FaceModel(n_out=args.face_eb)
-	model_speak = SpeakModel(face_emb=args.face_eb, hid_emb=128, batch_first=batch_first)
-	model_face.to(run_device)
-	model_speak.to(run_device)
+	print(f'{"="*20}Start loading model{"="*20}')
 
-	optim_face = optim.SGD(model_face.parameters(), lr=args.face_lr, momentum=0.5)
-	optim_speak = optim.Adam(model_speak.parameters(), lr=args.speak_lr, betas=(0.9, 0.999))
-	criterion = nn.L1Loss()
-	model_face.train()
-	model_speak.train()
-	sch_face = optim.lr_scheduler.ExponentialLR(optim_face, gamma=args.face_gamma)
-	sch_speak = optim.lr_scheduler.ExponentialLR(optim_speak, gamma=args.speak_gamma)
-
-	model_yolo = yolo_model(cfg='config/yolov5s.yaml').float().fuse().eval()
-	model_yolo.to(run_device)
-	model_yolo.load_state_dict(torch.load('pretrain_model/raw_yolov5s.pt',
-	                                      map_location=run_device))
+	model_lmk2lip = Lmk2LipModel(lmk_emb=args.lmk_emb, lip_emb=args.lip_emb, stride=1)
+	model_silence = SilenceModel(lip_emb=args.lip_emb)
+	model_list = [model_lmk2lip, model_silence]
+	for model_iter in model_list:
+		model_iter.to(run_device)
+		model_iter.train()
 
 	pad_resize = transforms.Compose([PadSquare(),
-	                                 transforms.Resize((args.resolution, args.resolution))])
+	                                 transforms.Resize(args.face_resolution)])
+
+	optim_lmk2lip = optim.Adam(model_lmk2lip.parameters(), lr=args.lmk2lip_lr, betas=(0.9, 0.999))
+	optim_silence = optim.Adam(model_silence.parameters(), lr=args.sync_lr, betas=(0.9, 0.999))
+	criterion_class = nn.CrossEntropyLoss()
+	sch_lmk2lip = optim.lr_scheduler.ExponentialLR(optim_lmk2lip, gamma=args.lmk2lip_gamma)
+	sch_silence = optim.lr_scheduler.ExponentialLR(optim_silence, gamma=args.sync_gamma)
+	tosave_list = ['model_lmk2lip', 'model_silence',
+	               'optim_lmk2lip', 'optim_silence',
+	               'sch_lmk2lip', 'sch_silence']
 	if args.wandb:
-		wandb.watch(model_face)
-		wandb.watch(model_speak)
+		for model_iter in model_list:
+			wandb.watch(model_iter)
 
 	# ============================度量载入===============================
-	epoch_loss_ss = Meter('Speak Silent Loss', 'avg', ':.2f')
-	epoch_loss_final = Meter('Final Loss', 'avg', ':.2f')
-	epoch_acc_ss = Meter('Speak Silent ACC', 'avg', ':.2f', '%,')
-	epoch_timer = Meter('Time', 'time', ':3.0f')
+	epoch_loss_class = Meter('Match Class Loss', 'avg', ':.4f')
+	epoch_loss_final = Meter('Final Loss', 'avg', ':.4f')
+	epoch_acc = Meter('Match Class ACC', 'avg', ':.2f', '%, ')
+	epoch_timer = Meter('Time', 'time', ':4.0f')
 
-	epoch_reset_list = [epoch_loss_final, epoch_timer, epoch_acc_ss]
-	print('Train Parameters')
-	for key, value in args.__dict__.items():
-		print(f'{key:18}:\t{value}')
-	print('')
+	epoch_reset_list = [epoch_loss_final, epoch_loss_class,
+	                    epoch_acc,
+	                    epoch_timer, ]
+	if args.mode in ('train', 'continue'):
+		print('Train Parameters')
+		for key, value in args.__dict__.items():
+			print(f'{key:18}:\t{value}')
+		print('')
 
 	# ============================数据载入===============================
 	loader_timer = Meter('Time', 'time', ':3.0f', end='')
 	print('%sStart loading dataset%s'%('='*20, '='*20))
 	loader_timer.set_start_time(time.time())
-	train_loader = LabDataLoader(args.train_list, batch_size, args.num_workers,
-	                             seq_len=16, is_train=True, max_size=50000)
-	# valid_loader = LRWDataLoader(args.valid_list, batch_size, args.num_workers,
-	#                             args.n_mfcc, is_train=False)
+	train_loader = LabLmkDataLoader(args.train_list, batch_size,
+	                                num_workers=args.num_workers,
+	                                seq_len=args.tgt_frame_num,
+	                                is_train=True, max_size=0)
+
+	valid_loader = LabLmkDataLoader(args.val_list, batch_size,
+	                                num_workers=args.num_workers,
+	                                seq_len=args.tgt_frame_num,
+	                                is_train=True, max_size=0)
 	loader_timer.update(time.time())
-	print('Finish loading dataset', loader_timer)
+	print(f'Batch Num in Train Loader: {len(train_loader)}')
+	print(f'Finish loading dataset {loader_timer}')
 
 	# ========================预加载模型================================
-	if args.mode.lower() in ['test', 'valid', 'eval']:
+	if args.mode.lower() in ['test', 'valid', 'eval', 'val', 'evaluate']:
+		del train_loader
 		model_ckpt = torch.load(args.pretrain_model)
-		model_face.load_state_dict(model_ckpt['model_face'])
-		model_speak.load_state_dict(model_ckpt['model_speak'])
-		# todo: 还没有编写测试代码
+		for item_str in tosave_list:
+			item_model = locals()[item_str]
+			item_model.load_state_dict(model_ckpt[item_str])
+		del model_ckpt
+		print(f'\n{"="*20}Start Evaluating{"="*20}')
+		if args.mode.lower() in ['valid', 'val', 'eval', 'evaluate']:
+			with torch.no_grad():
+				model_lmk2lip.eval()
+				model_silence.eval()
+				criterion_class.eval()
+				evaluate(model_lmk2lip, model_silence,
+				         criterion_class,
+				         valid_loader, args)
+		else:
+			del valid_loader
+			test_loader = LabLmkDataLoader(args.test_list, batch_size,
+			                               num_workers=args.num_workers,
+			                               seq_len=args.tgt_frame_num,
+			                               is_train=True, max_size=0)
+			with torch.no_grad():
+				model_lmk2lip.eval()
+				model_silence.eval()
+				criterion_class.eval()
+				evaluate(model_lmk2lip, model_silence,
+				         criterion_class,
+				         test_loader, args)
+		print(f'\n\nFinish Evaluation\n\n')
 		return
-	elif args.mode.lower().lower() in ['continue']:
+	elif args.mode.lower() in ['continue']:
 		print('Loading pretrained model', args.pretrain_model)
 		model_ckpt = torch.load(args.pretrain_model)
-		model_face.load_state_dict(model_ckpt['model_face'])
-		model_speak.load_state_dict(model_ckpt['model_speak'])
-		optim_face.load_state_dict(model_ckpt['optim_face'])
-		optim_speak.load_state_dict(model_ckpt['optim_speak'])
+		for item_str in tosave_list:
+			item_model = locals()[item_str]
+			item_model.load_state_dict(model_ckpt[item_str])
 		start_epoch = model_ckpt['epoch']
 		file_train_log = open(path_train_log, 'a')
 	elif args.mode.lower() in ['train']:
 		file_train_log = open(path_train_log, 'w')
+		if args.pretrain_model is not None and os.path.exists(args.pretrain_model):
+			model_ckpt = torch.load(args.pretrain_model)
+			model_lmk2lip.load_state_dict(model_ckpt['model_lmk2lip'])
+			if 'model_silence' in model_ckpt.keys():
+				model_silence.load_state_dict(model_ckpt['model_silence'])
 	else:
-		raise Exception(f"未知训练模式{args.mode}")
+		raise Exception(f"未定义训练模式{args.mode}")
 
 	print('Train Parameters', file=file_train_log)
 	for key, value in args.__dict__.items():
 		print(f'{key:18}:\t{value}', file=file_train_log)
-	print('', file=file_train_log)
+	print('\n', file=file_train_log)
 
 	# ============================开始训练===============================
 	print('%sStart Training%s'%('='*20, '='*20))
+
+	label_zero = torch.zeros(args.batch_size, dtype=torch.long, device=run_device)
+	label_one = torch.ones(args.batch_size, dtype=torch.long, device=run_device)
+
 	for epoch in range(start_epoch, args.epoch):
-		print('\nEpoch: %d'%epoch)
+		print(f'\nEpoch: {epoch}')
 		batch_cnt = 0
 		epoch_timer.set_start_time(time.time())
 		for data in train_loader:
-			# image_data = (batch,29,3,256,256)
-			speak_label = data[1]
-			image_data = data[0].to(run_device)
-			image_data.transpose_(1, 0)
-			# image_data = (29,batch,3,256,256)
-			face_emb_list = []
-			for i, image_batch in enumerate(image_data):
-				with torch.no_grad():
-					bbox_seq = face_detect(model_yolo, image_batch)
-				for j, bbox in enumerate(bbox_seq):
-					x1, y1, x2, y2 = bbox_seq[j]
-					if y1<=y2:
-						y1, y2 = 0, 255
-					if x1<=x2:
-						x1, x2 = 0, 255
-					crop_face = image_batch[j, :, y1:y2, x1:x2]
-					image_data[i, j] = pad_resize(crop_face)
-				# todo: 考虑在这里保存一下预处理后的数据，loader额外返回文件名
-				face_batch = model_face(image_batch)
-				face_emb_list.append(face_batch)
-			face_data = torch.stack(face_emb_list, dim=0)
-			# face_data = (seq_len, batch, face_emb)
+			a_lmk, label_gt = data
+			a_lmk = a_lmk.to(run_device)
+			label_gt = label_gt.to(run_device)
 
-			label_gt = speak_label.float().squeeze().to(run_device)
-			if batch_first:
-				face_data.transpose_(1, 0)
-			label_pred = model_speak(face_data)
+			a_lip = model_lmk2lip(a_lmk)
 
-			# ======================计算沉默说话损失===========================
-			loss_avmatch = criterion(label_gt, label_pred)
-			batch_acc_avmatch = torch.sum(label_gt*label_pred>0).item()
+			label_pred = model_silence(a_lip)
+
+			# ======================计算唇部特征单词分类损失===========================
+			loss_class = criterion_class(label_pred, label_gt)
+			correct_num = torch.sum(torch.argmax(label_pred, dim=1) == label_gt).item()
 
 			# ==========================反向传播===============================
-			optim_face.zero_grad()
-			optim_speak.zero_grad()
-			batch_loss_final = loss_avmatch
-			batch_loss_final.backward()
-			optim_face.step()
-			optim_speak.step()
+			optim_lmk2lip.zero_grad()
+			optim_silence.zero_grad()
+			loss_final = loss_class
+			loss_final.backward()
+			optim_lmk2lip.step()
+			optim_silence.step()
 
 			# ==========计量更新============================
-			epoch_acc_ss.update(batch_acc_avmatch*100/batch_size)
-			epoch_loss_ss.update(loss_avmatch.item())
-			epoch_loss_final.update(batch_loss_final.item())
+			epoch_acc.update(correct_num*100/len(label_gt))
+			epoch_loss_class.update(loss_class.item())
+			epoch_loss_final.update(loss_final.item())
 			epoch_timer.update(time.time())
 			batch_cnt += 1
-			print(f'\rBatch:{batch_cnt:03d}/{len(train_loader):03d}  {epoch_timer}{epoch_loss_final}{epoch_acc_ss}',
-			      end='     ')
+			print(f'\rBatch:{batch_cnt:04d}/{len(train_loader):04d}  {epoch_timer}{epoch_loss_final}',
+			      f'{epoch_acc}',
+			      sep='', end='     ')
+			torch.cuda.empty_cache()
 
-		sch_face.step()
-		sch_speak.step()
+		sch_lmk2lip.step()
+		sch_silence.step()
 		print('')
-		print('Epoch:', epoch, epoch_loss_final, epoch_acc_ss,
+		print(f'Current Model M2V Learning Rate is {sch_lmk2lip.get_last_lr()}')
+		print(f'Current Model Sync Learning Rate is {sch_silence.get_last_lr()}')
+		print('Epoch:', epoch, epoch_loss_final, epoch_acc,
 		      file=file_train_log)
-		log_dict = {'final loss': epoch_loss_final.avg,
-		            'ss loss': epoch_loss_ss.avg,
-		            'ss acc': epoch_acc_ss.avg}
+		log_dict = {'epoch': epoch,
+		            epoch_loss_final.name: epoch_loss_final.avg,
+		            epoch_loss_class.name: epoch_loss_class.avg,
+		            epoch_acc.name: epoch_acc.avg}
 		for meter in epoch_reset_list:
 			meter.reset()
 
@@ -194,29 +260,33 @@ def main():
 			torch.cuda.empty_cache()
 
 		if (epoch+1)%args.save_step == 0:
-			torch.save({'epoch': epoch+1,
-			            'model_face': model_face.state_dict(),
-			            'model_speak': model_speak.state_dict(),
-			            'optim_face': optim_face.state_dict(),
-			            'optim_speak': optim_speak.state_dict(),
-			            'sch_face': sch_face.state_dict(),
-			            'sch_speak': sch_speak.state_dict(), },
-			           cache_dir+"/model%09d.model"%epoch)
+			ckpt_dict = {'epoch': epoch+1}
+			for item_str in tosave_list:
+				item_model = locals()[item_str]
+				ckpt_dict.update({item_str: item_model.state_dict()})
+			print(f'save model to {cache_dir+"/model%09d.model"%epoch}')
+			torch.save(ckpt_dict, cache_dir+"/model%09d.model"%epoch)
 
 		# ===========================验证=======================
-		valid_log = dict()
-		if (epoch+1)%args.valid_step == 0:
-			model_face.eval()
-			model_speak.eval()
-			criterion.eval()
-			# todo: 测试代码
-			model_face.train()
-			model_speak.train()
-			criterion.train()
-		log_dict.update(valid_log)
+		if args.valid_step>0 and (epoch+1)%args.valid_step == 0:
+			with torch.no_grad():
+				# torch.no_grad()不能停止drop_out和 batch_norm，所以还是需要eval
+				model_lmk2lip.eval()
+				model_silence.eval()
+				criterion_class.eval()
+				# try:
+				log_dict.update(evaluate(model_lmk2lip, model_silence,
+				                         criterion_class, valid_loader, args))
+				# except:
+				# 	print('Evaluating Error')
+				model_lmk2lip.train()
+				model_silence.train()
+				criterion_class.train()
 
 		if args.wandb:
 			wandb.log(log_dict)
+		torch.cuda.synchronize()
+		torch.cuda.empty_cache()
 	file_train_log.close()
 	if args.wandb:
 		wandb.finish()

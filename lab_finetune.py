@@ -1,11 +1,8 @@
-import math
 import os
-import platform
 import time
 import numpy as np
 import torch
 from torch import nn
-import torch.nn.functional as F
 import torch.optim as optim
 import torchvision.transforms as transforms
 import wandb
@@ -13,73 +10,82 @@ import sys
 
 from model.SyncModel import SyncModel
 from utils.accuracy import get_gt_label, get_rand_idx
-from utils.data_utils.LRWImageLmkTriplet import LRWImageLmkTripletDataLoader
-from utils.data_utils.LRWRaw import LRWDataLoader
-from utils.data_utils.LRWTriplet import LRWTripletDataLoader
+from utils.data_utils.LabLmkWav import LabLmkWavDataLoader
+from utils.data_utils.LabRaw import LabDataLoader
 
 sys.path.append('/home/tliu/fsx/project/AVsync/third_party/yolo')
 sys.path.append('/home/tliu/fsx/project/AVsync/third_party/HRNet')
 
-from model.Lip2TModel import Lip2T_fc_Model
 from model.Lmk2LipModel import Lmk2LipModel
-from model.Voice2TModel import Voice2T_fc_Model
-from model.VGGModel import VGG6_speech, ResLip, VGG6_lip
-from utils.data_utils.LRWImageTriplet import LRWImageTripletDataLoader
+from model.VGGModel import VGG6_speech
 from utils.tensor_utils import PadSquare
 from utils.GetConsoleArgs import TrainOptions
 from utils.Meter import Meter
+from third_party.yolo.yolo_models.yolo import Model as yolo_model
+from third_party.yolo.yolo_utils.util_yolo import face_detect
 from third_party.HRNet.utils_inference import get_model_by_name, get_batch_lmks
 
 
 def evaluate(model_lmk2lip, model_wav2v, model_sync, criterion_class, loader, args):
 	run_device = torch.device("cuda:0" if args.gpu else "cpu")
 
-	val_loss_class = Meter('Class Loss', 'avg', ':.4f')
+	val_loss_gt = Meter('Match Class Loss', 'avg', ':.4f')
+	val_loss_fk = Meter('Mismatch Class Loss', 'avg', ':.4f')
 	val_loss_final = Meter('Final Loss', 'avg', ':.4f')
-	val_acc_class = Meter('Class ACC', 'avg', ':.2f', '%,')
+	val_acc_gt = Meter('Match Class ACC', 'avg', ':.2f', '%, ')
+	val_acc_fk = Meter('Mismatch Class ACC', 'avg', ':.2f', '%, ')
+	val_acc_all = Meter('All Class ACC', 'avg', ':.2f', '%, ')
 	val_timer = Meter('Time', 'time', ':3.0f')
 	val_timer.set_start_time(time.time())
+	label_one = torch.ones(args.batch_size, dtype=torch.long, device=run_device)
+	label_zero = torch.zeros(args.batch_size, dtype=torch.long, device=run_device)
 
 	print('\tEvaluating Result:')
 	for data in loader:
-		a_wav, a_lmk, a_wid = data
-		a_wav = a_wav.to(run_device)
+		a_lmk, a_wav_gt, a_wav_fk = data
 		a_lmk = a_lmk.to(run_device)
-		a_wid = a_wid.to(run_device)
-		a_lip = model_lmk2lip(a_lmk)
-		a_voice = model_wav2v(a_wav)
+		a_wav_gt = a_wav_gt.to(run_device)
+		a_wav_fk = a_wav_fk.to(run_device)
 
-		# new_idx = get_rand_idx(args.batch_size)
-		new_idx = np.arange(0, args.batch_size)
-		a_voice = a_voice[new_idx, :]
-		label_gt = get_gt_label(a_wid, new_idx).to(run_device)
-		label_pred = model_sync(a_lip, a_voice)
+		a_lip = model_lmk2lip(a_lmk)
+		a_voice_gt = model_wav2v(a_wav_gt)
+		a_voice_fk = model_wav2v(a_wav_fk)
+
+		label_pred_gt = model_sync(a_lip, a_voice_gt)
+		label_pred_fk = model_sync(a_lip, a_voice_fk)
 
 		# ======================计算唇部特征单词分类损失===========================
-		loss_class = criterion_class(label_pred, label_gt)
-		correct_num_class = torch.sum(torch.argmax(label_pred, dim=1) == label_gt).item()
+		loss_class_gt = criterion_class(label_pred_gt, label_one)
+		loss_class_fk = criterion_class(label_pred_fk, label_zero)
+		correct_num_gt = torch.sum(torch.argmax(label_pred_gt, dim=1) == label_one).item()
+		correct_num_fk = torch.sum(torch.argmax(label_pred_fk, dim=1) == label_zero).item()
 
-		loss_final = loss_class
+		loss_final = loss_class_gt+loss_class_fk
 
 		# ==========计量更新============================
-		val_acc_class.update(correct_num_class*100/len(label_gt))
-		val_loss_class.update(loss_class.item())
+		val_acc_gt.update(correct_num_gt*100/len(label_one))
+		val_acc_fk.update(correct_num_fk*100/len(label_zero))
+		val_acc_all.update((val_acc_gt.avg+val_acc_fk.avg)*0.5)
+		val_loss_gt.update(loss_class_gt.item())
+		val_loss_fk.update(loss_class_fk.item())
 		val_loss_final.update(loss_final.item())
 		val_timer.update(time.time())
 		print(f'\r\tBatch:{val_timer.count:04d}/{len(loader):04d}  {val_timer}{val_loss_final}',
-		      f'{val_acc_class} EMA ACC: {val_acc_class.avg_ema:.2f}%, ',
-		      f'{val_loss_class}',
+		      f'{val_acc_all}{val_acc_gt}{val_acc_fk}',
 		      sep='', end='     ')
 
-	val_log = {'val_loss_class': val_loss_class.avg,
+	val_log = {'val_loss_gt': val_loss_gt.avg,
+	           'val_loss_fk': val_loss_fk.avg,
 	           'val_loss_final': val_loss_final.avg,
-	           'val_acc_class': val_acc_class.avg}
+	           'val_acc_all': val_acc_all,
+	           'val_acc_fk': val_acc_fk.avg,
+	           'val_acc_gt': val_acc_gt.avg}
 	return val_log
 
 
 def main():
 	# ===========================参数设定===============================
-	args = TrainOptions('config/train.yaml').parse()
+	args = TrainOptions('config/lab_sync.yaml').parse()
 	start_epoch = 0
 	batch_size = args.batch_size
 	torch.backends.cudnn.benchmark = args.gpu
@@ -97,7 +103,13 @@ def main():
 		           name=args.exp_num, group=args.exp_num)
 
 	# ============================模型载入===============================
-	print('%sStart loading model%s'%('='*20, '='*20))
+	print(f'{"="*20}Start loading model{"="*20}')
+	model_yolo = yolo_model(cfg='config/yolov5s.yaml').float().fuse().eval()
+	model_yolo.load_state_dict(torch.load('pretrain_model/raw_yolov5s.pt'))
+	model_yolo.to(run_device)
+	model_hrnet = get_model_by_name('300W', root_models_path='pretrain_model')
+	model_hrnet = model_hrnet.eval()
+	model_hrnet.to(run_device)
 
 	model_lmk2lip = Lmk2LipModel(lmk_emb=args.lmk_emb, lip_emb=args.lip_emb, stride=1)
 	model_wav2v = VGG6_speech(n_out=args.voice_emb)
@@ -106,6 +118,9 @@ def main():
 	for model_iter in model_list:
 		model_iter.to(run_device)
 		model_iter.train()
+
+	pad_resize = transforms.Compose([PadSquare(),
+	                                 transforms.Resize(args.face_resolution)])
 
 	optim_lmk2lip = optim.Adam(model_lmk2lip.parameters(), lr=args.lmk2lip_lr, betas=(0.9, 0.999))
 	optim_wav2v = optim.Adam(model_wav2v.parameters(), lr=args.wav2v_lr, betas=(0.9, 0.999))
@@ -122,13 +137,16 @@ def main():
 			wandb.watch(model_iter)
 
 	# ============================度量载入===============================
-	epoch_loss_class = Meter('Class Loss', 'avg', ':.4f')
+	epoch_loss_class_gt = Meter('Match Class Loss', 'avg', ':.4f')
+	epoch_loss_class_fk = Meter('Mismatch Class Loss', 'avg', ':.4f')
 	epoch_loss_final = Meter('Final Loss', 'avg', ':.4f')
-	epoch_acc_sync = Meter('Class ACC', 'avg', ':.2f', '%, ')
+	epoch_acc_gt = Meter('Match Class ACC', 'avg', ':.2f', '%, ')
+	epoch_acc_fk = Meter('Mismatch Class ACC', 'avg', ':.2f', '%, ')
+	epoch_acc_all = Meter('All Class ACC', 'avg', ':.2f', '%, ')
 	epoch_timer = Meter('Time', 'time', ':4.0f')
 
-	epoch_reset_list = [epoch_loss_final, epoch_loss_class,
-	                    epoch_acc_sync,
+	epoch_reset_list = [epoch_loss_final, epoch_loss_class_gt, epoch_loss_class_fk,
+	                    epoch_acc_gt, epoch_acc_fk, epoch_acc_all,
 	                    epoch_timer, ]
 	if args.mode in ('train', 'continue'):
 		print('Train Parameters')
@@ -140,19 +158,15 @@ def main():
 	loader_timer = Meter('Time', 'time', ':3.0f', end='')
 	print('%sStart loading dataset%s'%('='*20, '='*20))
 	loader_timer.set_start_time(time.time())
-	train_loader = LRWDataLoader(args.train_list, batch_size,
-	                             num_workers=args.num_workers,
-	                             n_mfcc=args.n_mfcc,
-	                             resolution=args.resolution,
-	                             seq_len=args.tgt_frame_num,
-	                             is_train=True, max_size=0)
+	train_loader = LabLmkWavDataLoader(args.train_list, batch_size,
+	                                   num_workers=args.num_workers,
+	                                   seq_len=args.tgt_frame_num,
+	                                   is_train=True, max_size=0)
 
-	valid_loader = LRWDataLoader(args.val_list, batch_size,
-	                             num_workers=args.num_workers,
-	                             n_mfcc=args.n_mfcc,
-	                             resolution=args.resolution,
-	                             seq_len=args.tgt_frame_num,
-	                             is_train=True, max_size=0)
+	valid_loader = LabLmkWavDataLoader(args.val_list, batch_size,
+	                                   num_workers=args.num_workers,
+	                                   seq_len=args.tgt_frame_num,
+	                                   is_train=True, max_size=0)
 	loader_timer.update(time.time())
 	print(f'Batch Num in Train Loader: {len(train_loader)}')
 	print(f'Finish loading dataset {loader_timer}')
@@ -177,12 +191,10 @@ def main():
 				         valid_loader, args)
 		else:
 			del valid_loader
-			test_loader = LRWDataLoader(args.test_list, batch_size,
-			                            num_workers=args.num_workers,
-			                            n_mfcc=args.n_mfcc,
-			                            resolution=args.resolution,
-			                            seq_len=args.tgt_frame_num,
-			                            is_train=False, max_size=0)
+			test_loader = LabLmkWavDataLoader(args.test_list, batch_size,
+			                                  num_workers=args.num_workers,
+			                                  seq_len=args.tgt_frame_num,
+			                                  is_train=True, max_size=0)
 			with torch.no_grad():
 				model_lmk2lip.eval()
 				model_wav2v.eval()
@@ -203,7 +215,7 @@ def main():
 		file_train_log = open(path_train_log, 'a')
 	elif args.mode.lower() in ['train']:
 		file_train_log = open(path_train_log, 'w')
-		if args.pretrain_model is not None:
+		if args.pretrain_model is not None and os.path.exists(args.pretrain_model):
 			model_ckpt = torch.load(args.pretrain_model)
 			model_lmk2lip.load_state_dict(model_ckpt['model_lmk2lip'])
 			model_wav2v.load_state_dict(model_ckpt['model_wav2v'])
@@ -219,47 +231,60 @@ def main():
 
 	# ============================开始训练===============================
 	print('%sStart Training%s'%('='*20, '='*20))
+
+	label_zero = torch.zeros(args.batch_size, dtype=torch.long, device=run_device)
+	label_one = torch.ones(args.batch_size, dtype=torch.long, device=run_device)
+
 	for epoch in range(start_epoch, args.epoch):
-		print('\nEpoch: %d'%epoch)
+		print(f'\nEpoch: {epoch}')
 		batch_cnt = 0
 		epoch_timer.set_start_time(time.time())
 		for data in train_loader:
-			a_wav, a_lmk, a_wid = data
-			a_wav = a_wav.to(run_device)
+			a_lmk, a_wav_gt, a_wav_fk = data
 			a_lmk = a_lmk.to(run_device)
-			a_wid = a_wid.to(run_device)
-			a_lip = model_lmk2lip(a_lmk)
-			a_voice = model_wav2v(a_wav)
+			a_wav_gt = a_wav_gt.to(run_device)
+			a_wav_fk = a_wav_fk.to(run_device)
+			# a_lmk = (b, seq_len, 40)
+			# a_wav = (b, seq_len*16000)
 
-			new_idx = get_rand_idx(args.batch_size)
-			a_voice = a_voice[new_idx, :]
-			label_gt = get_gt_label(a_wid, new_idx).to(run_device)
-			label_pred = model_sync(a_lip, a_voice)
+			a_lip = model_lmk2lip(a_lmk)
+			a_voice_gt = model_wav2v(a_wav_gt)
+			a_voice_fk = model_wav2v(a_wav_fk)
+
+			label_pred_gt = model_sync(a_lip, a_voice_gt)
+			label_pred_fk = model_sync(a_lip, a_voice_fk)
+			# print(f'\npred gt \n{label_pred_gt}\n')
+			# print(f'\npred fk \n{label_pred_fk}\n')
 
 			# ======================计算唇部特征单词分类损失===========================
-			loss_class = criterion_class(label_pred, label_gt)
-			correct_num_class = torch.sum(torch.argmax(label_pred, dim=1) == label_gt).item()
+			loss_class_gt = criterion_class(label_pred_gt, label_one)
+			loss_class_fk = criterion_class(label_pred_fk, label_zero)
+			correct_num_gt = torch.sum(torch.argmax(label_pred_gt, dim=1) == label_one).item()
+			correct_num_fk = torch.sum(torch.argmax(label_pred_fk, dim=1) == label_zero).item()
 
 			# ==========================反向传播===============================
 			optim_lmk2lip.zero_grad()
 			optim_wav2v.zero_grad()
 			optim_sync.zero_grad()
-			loss_final = loss_class
+			loss_final = loss_class_gt+loss_class_fk
 			loss_final.backward()
 			optim_lmk2lip.step()
 			optim_wav2v.step()
 			optim_sync.step()
 
 			# ==========计量更新============================
-			epoch_acc_sync.update(correct_num_class*100/len(label_gt))
-			epoch_loss_class.update(loss_class.item())
+			epoch_acc_gt.update(correct_num_gt*100/len(label_pred_gt))
+			epoch_acc_fk.update(correct_num_fk*100/len(label_pred_fk))
+			epoch_acc_all.update((epoch_acc_gt.avg+epoch_acc_fk.avg)*0.5)
+			epoch_loss_class_gt.update(loss_class_gt.item())
+			epoch_loss_class_fk.update(loss_class_fk.item())
 			epoch_loss_final.update(loss_final.item())
 			epoch_timer.update(time.time())
 			batch_cnt += 1
 			print(f'\rBatch:{batch_cnt:04d}/{len(train_loader):04d}  {epoch_timer}{epoch_loss_final}',
-			      f'{epoch_acc_sync}EMA ACC: {epoch_acc_sync.avg_ema:.2f}%, ',
-			      f'{epoch_loss_class}',
+			      f'{epoch_acc_all}{epoch_acc_gt}{epoch_acc_fk}',
 			      sep='', end='     ')
+			torch.cuda.empty_cache()
 
 		sch_lmk2lip.step()
 		sch_wav2v.step()
@@ -268,12 +293,12 @@ def main():
 		print(f'Current Model M2V Learning Rate is {sch_lmk2lip.get_last_lr()}')
 		print(f'Current Model V2T Learning Rate is {sch_wav2v.get_last_lr()}')
 		print(f'Current Model Sync Learning Rate is {sch_sync.get_last_lr()}')
-		print('Epoch:', epoch, epoch_loss_final, epoch_acc_sync,
+		print('Epoch:', epoch, epoch_loss_final, epoch_acc_gt,
 		      file=file_train_log)
 		log_dict = {'epoch': epoch,
 		            epoch_loss_final.name: epoch_loss_final.avg,
-		            epoch_loss_class.name: epoch_loss_class.avg,
-		            epoch_acc_sync.name: epoch_acc_sync.avg}
+		            epoch_loss_class_gt.name: epoch_loss_class_gt.avg,
+		            epoch_acc_gt.name: epoch_acc_gt.avg}
 		for meter in epoch_reset_list:
 			meter.reset()
 
@@ -297,11 +322,11 @@ def main():
 				model_wav2v.eval()
 				model_sync.eval()
 				criterion_class.eval()
-				try:
-					log_dict.update(evaluate(model_lmk2lip, model_wav2v, model_sync,
-					                         criterion_class, valid_loader, args))
-				except:
-					print('Evaluating Error')
+				# try:
+				log_dict.update(evaluate(model_lmk2lip, model_wav2v, model_sync,
+				                         criterion_class, valid_loader, args))
+				# except:
+				# 	print('Evaluating Error')
 				model_lmk2lip.train()
 				model_wav2v.train()
 				model_sync.train()

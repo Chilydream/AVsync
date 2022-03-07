@@ -19,7 +19,7 @@ sys.path.append('/home/tliu/fsx/project/AVsync/third_party/HRNet')
 from model.Lip2TModel import Lip2T_fc_Model
 from model.Lmk2LipModel import Lmk2LipModel
 from model.Voice2TModel import Voice2T_fc_Model
-from model.VGGModel import VGGVoice, ResLip, VGGLip
+from model.VGGModel import VGG6_speech, ResLip, VGG6_lip
 from utils.data_utils.LRWImageTriplet import LRWImageTripletDataLoader
 from utils.tensor_utils import PadSquare
 from utils.GetConsoleArgs import TrainOptions
@@ -82,7 +82,6 @@ def main():
 	args = TrainOptions('config/lmk2text.yaml').parse()
 	start_epoch = 0
 	batch_size = args.batch_size
-	batch_first = args.batch_first
 	torch.backends.cudnn.benchmark = args.gpu
 	run_device = torch.device("cuda" if args.gpu else "cpu")
 

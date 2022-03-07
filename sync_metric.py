@@ -9,29 +9,30 @@ import torch.nn.functional as F
 import torch.optim as optim
 import torchvision.transforms as transforms
 import wandb
+from pytorch_metric_learning import losses
 import sys
 
-from model.SyncModel import SyncModel
-from utils.accuracy import get_gt_label, get_rand_idx
-from utils.data_utils.LRWImageLmkTriplet import LRWImageLmkTripletDataLoader
-from utils.data_utils.LRWRaw import LRWDataLoader
-from utils.data_utils.LRWTriplet import LRWTripletDataLoader
 
 sys.path.append('/home/tliu/fsx/project/AVsync/third_party/yolo')
 sys.path.append('/home/tliu/fsx/project/AVsync/third_party/HRNet')
 
+from utils.crop_face import crop_face_batch_seq
+from utils.accuracy import get_gt_label, get_rand_idx
+from utils.data_utils.LRWRaw import LRWDataLoader
 from model.Lip2TModel import Lip2T_fc_Model
 from model.Lmk2LipModel import Lmk2LipModel
+from model.SyncModel import SyncModel
 from model.Voice2TModel import Voice2T_fc_Model
-from model.VGGModel import VGG6_speech, ResLip, VGG6_lip
+from model.VGGModel import VGG6_speech, ResLip, VGG6_lip, VGG5_lip
 from utils.data_utils.LRWImageTriplet import LRWImageTripletDataLoader
-from utils.tensor_utils import PadSquare
+from utils.tensor_utils import PadSquare, MyContrastiveLoss
 from utils.GetConsoleArgs import TrainOptions
 from utils.Meter import Meter
 from third_party.HRNet.utils_inference import get_model_by_name, get_batch_lmks
+from third_party.yolo.yolo_models.yolo import Model as yolo_model
 
 
-def evaluate(model_lmk2lip, model_wav2v, model_sync, criterion_class, loader, args):
+def evaluate(model_img2lip, model_wav2v, model_sync, criterion_class, loader, args):
 	run_device = torch.device("cuda:0" if args.gpu else "cpu")
 
 	val_loss_class = Meter('Class Loss', 'avg', ':.4f')
@@ -46,7 +47,7 @@ def evaluate(model_lmk2lip, model_wav2v, model_sync, criterion_class, loader, ar
 		a_wav = a_wav.to(run_device)
 		a_lmk = a_lmk.to(run_device)
 		a_wid = a_wid.to(run_device)
-		a_lip = model_lmk2lip(a_lmk)
+		a_lip = model_img2lip(a_lmk)
 		a_voice = model_wav2v(a_wav)
 
 		# new_idx = get_rand_idx(args.batch_size)
@@ -79,7 +80,7 @@ def evaluate(model_lmk2lip, model_wav2v, model_sync, criterion_class, loader, ar
 
 def main():
 	# ===========================参数设定===============================
-	args = TrainOptions('config/train.yaml').parse()
+	args = TrainOptions('config/sync_metric.yaml').parse()
 	start_epoch = 0
 	batch_size = args.batch_size
 	torch.backends.cudnn.benchmark = args.gpu
@@ -98,25 +99,31 @@ def main():
 
 	# ============================模型载入===============================
 	print('%sStart loading model%s'%('='*20, '='*20))
+	model_yolo = yolo_model(cfg='config/yolov5s.yaml').float().fuse().eval()
+	model_yolo.load_state_dict(torch.load('pretrain_model/raw_yolov5s.pt'))
+	model_yolo = model_yolo.to(run_device)
 
-	model_lmk2lip = Lmk2LipModel(lmk_emb=args.lmk_emb, lip_emb=args.lip_emb, stride=1)
-	model_wav2v = VGG6_speech(n_out=args.voice_emb)
+	# model_lmk2lip = Lmk2LipModel(lmk_emb=args.lmk_emb, lip_emb=args.lip_emb, stride=1)
+	model_img2lip = VGG5_lip(n_out=args.lip_emb, stride=args.stride)
+	model_wav2v = VGG6_speech(n_out=args.voice_emb, stride=args.stride)
 	model_sync = SyncModel(lip_emb=args.lip_emb, voice_emb=args.voice_emb)
-	model_list = [model_lmk2lip, model_wav2v, model_sync]
+	model_list = [model_img2lip, model_wav2v, model_sync]
 	for model_iter in model_list:
 		model_iter.to(run_device)
 		model_iter.train()
 
-	optim_lmk2lip = optim.Adam(model_lmk2lip.parameters(), lr=args.lmk2lip_lr, betas=(0.9, 0.999))
+	optim_img2lip = optim.Adam(model_img2lip.parameters(), lr=args.img2lip_lr, betas=(0.9, 0.999))
 	optim_wav2v = optim.Adam(model_wav2v.parameters(), lr=args.wav2v_lr, betas=(0.9, 0.999))
 	optim_sync = optim.Adam(model_sync.parameters(), lr=args.sync_lr, betas=(0.9, 0.999))
 	criterion_class = nn.CrossEntropyLoss()
-	sch_lmk2lip = optim.lr_scheduler.ExponentialLR(optim_lmk2lip, gamma=args.lmk2lip_gamma)
+	# criterion_margin = losses.NTXentLoss(temperature=args.temperature)
+	criterion_margin = MyContrastiveLoss(args.margin)
+	sch_img2lip = optim.lr_scheduler.ExponentialLR(optim_img2lip, gamma=args.img2lip_gamma)
 	sch_wav2v = optim.lr_scheduler.ExponentialLR(optim_wav2v, gamma=args.wav2v_gamma)
 	sch_sync = optim.lr_scheduler.ExponentialLR(optim_sync, gamma=args.sync_gamma)
-	tosave_list = ['model_lmk2lip', 'model_wav2v', 'model_sync',
-	               'optim_lmk2lip', 'optim_wav2v', 'optim_sync',
-	               'sch_lmk2lip', 'sch_wav2v', 'sch_sync']
+	tosave_list = ['model_img2lip', 'model_wav2v', 'model_sync',
+	               'optim_img2lip', 'optim_wav2v', 'optim_sync',
+	               'sch_img2lip', 'sch_wav2v', 'sch_sync']
 	if args.wandb:
 		for model_iter in model_list:
 			wandb.watch(model_iter)
@@ -143,14 +150,14 @@ def main():
 	train_loader = LRWDataLoader(args.train_list, batch_size,
 	                             num_workers=args.num_workers,
 	                             n_mfcc=args.n_mfcc,
-	                             resolution=args.resolution,
+	                             resolution=args.img_resolution,
 	                             seq_len=args.tgt_frame_num,
 	                             is_train=True, max_size=0)
 
 	valid_loader = LRWDataLoader(args.val_list, batch_size,
 	                             num_workers=args.num_workers,
 	                             n_mfcc=args.n_mfcc,
-	                             resolution=args.resolution,
+	                             resolution=args.img_resolution,
 	                             seq_len=args.tgt_frame_num,
 	                             is_train=True, max_size=0)
 	loader_timer.update(time.time())
@@ -168,11 +175,11 @@ def main():
 		print(f'\n{"="*20}Start Evaluating{"="*20}')
 		if args.mode.lower() in ['valid', 'val', 'eval', 'evaluate']:
 			with torch.no_grad():
-				model_lmk2lip.eval()
+				model_img2lip.eval()
 				model_wav2v.eval()
 				model_sync.eval()
 				criterion_class.eval()
-				evaluate(model_lmk2lip, model_wav2v, model_sync,
+				evaluate(model_img2lip, model_wav2v, model_sync,
 				         criterion_class,
 				         valid_loader, args)
 		else:
@@ -184,11 +191,11 @@ def main():
 			                            seq_len=args.tgt_frame_num,
 			                            is_train=False, max_size=0)
 			with torch.no_grad():
-				model_lmk2lip.eval()
+				model_img2lip.eval()
 				model_wav2v.eval()
 				model_sync.eval()
 				criterion_class.eval()
-				evaluate(model_lmk2lip, model_wav2v, model_sync,
+				evaluate(model_img2lip, model_wav2v, model_sync,
 				         criterion_class,
 				         test_loader, args)
 		print(f'\n\nFinish Evaluation\n\n')
@@ -205,7 +212,7 @@ def main():
 		file_train_log = open(path_train_log, 'w')
 		if args.pretrain_model is not None:
 			model_ckpt = torch.load(args.pretrain_model)
-			model_lmk2lip.load_state_dict(model_ckpt['model_lmk2lip'])
+			model_img2lip.load_state_dict(model_ckpt['model_img2lip'])
 			model_wav2v.load_state_dict(model_ckpt['model_wav2v'])
 			if 'model_sync' in model_ckpt.keys():
 				model_sync.load_state_dict(model_ckpt['model_sync'])
@@ -224,11 +231,14 @@ def main():
 		batch_cnt = 0
 		epoch_timer.set_start_time(time.time())
 		for data in train_loader:
-			a_wav, a_lmk, a_wid = data
+			a_wav, a_img, a_wid = data
 			a_wav = a_wav.to(run_device)
-			a_lmk = a_lmk.to(run_device)
+			a_img = a_img.to(run_device)
 			a_wid = a_wid.to(run_device)
-			a_lip = model_lmk2lip(a_lmk)
+			# a_face = crop_face_batch_seq(model_yolo, a_img, args)
+			a_face = a_img
+			a_face.transpose_(2, 1)
+			a_lip = model_img2lip(a_face)
 			a_voice = model_wav2v(a_wav)
 
 			new_idx = get_rand_idx(args.batch_size)
@@ -238,15 +248,16 @@ def main():
 
 			# ======================计算唇部特征单词分类损失===========================
 			loss_class = criterion_class(label_pred, label_gt)
+			loss_margin = criterion_margin(a_voice, a_lip, label_gt)
 			correct_num_class = torch.sum(torch.argmax(label_pred, dim=1) == label_gt).item()
 
 			# ==========================反向传播===============================
-			optim_lmk2lip.zero_grad()
+			optim_img2lip.zero_grad()
 			optim_wav2v.zero_grad()
 			optim_sync.zero_grad()
 			loss_final = loss_class
 			loss_final.backward()
-			optim_lmk2lip.step()
+			optim_img2lip.step()
 			optim_wav2v.step()
 			optim_sync.step()
 
@@ -261,11 +272,11 @@ def main():
 			      f'{epoch_loss_class}',
 			      sep='', end='     ')
 
-		sch_lmk2lip.step()
+		sch_img2lip.step()
 		sch_wav2v.step()
 		sch_sync.step()
 		print('')
-		print(f'Current Model M2V Learning Rate is {sch_lmk2lip.get_last_lr()}')
+		print(f'Current Model M2V Learning Rate is {sch_img2lip.get_last_lr()}')
 		print(f'Current Model V2T Learning Rate is {sch_wav2v.get_last_lr()}')
 		print(f'Current Model Sync Learning Rate is {sch_sync.get_last_lr()}')
 		print('Epoch:', epoch, epoch_loss_final, epoch_acc_sync,
@@ -293,16 +304,16 @@ def main():
 		if args.valid_step>0 and (epoch+1)%args.valid_step == 0:
 			with torch.no_grad():
 				# torch.no_grad()不能停止drop_out和 batch_norm，所以还是需要eval
-				model_lmk2lip.eval()
+				model_img2lip.eval()
 				model_wav2v.eval()
 				model_sync.eval()
 				criterion_class.eval()
 				try:
-					log_dict.update(evaluate(model_lmk2lip, model_wav2v, model_sync,
+					log_dict.update(evaluate(model_img2lip, model_wav2v, model_sync,
 					                         criterion_class, valid_loader, args))
 				except:
 					print('Evaluating Error')
-				model_lmk2lip.train()
+				model_img2lip.train()
 				model_wav2v.train()
 				model_sync.train()
 				criterion_class.train()

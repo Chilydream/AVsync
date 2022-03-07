@@ -14,7 +14,7 @@ import sys
 
 from model.Lip2TModel import Lip2T_fc_Model
 from model.Voice2TModel import Voice2T_fc_Model
-from model.VGGModel import VGGVoice, ResLip
+from model.VGGModel import VGG6_speech, ResLip
 from utils.data_utils.LRWImageTriplet import LRWImageTripletDataLoader
 from utils.tensor_utils import PadSquare
 
@@ -95,7 +95,6 @@ def main():
 
 	start_epoch = 0
 	batch_size = args.batch_size
-	batch_first = args.batch_first
 
 	cur_exp_path = os.path.join(args.exp_dir, args.exp_num)
 	cache_dir = os.path.join(cur_exp_path, 'cache')

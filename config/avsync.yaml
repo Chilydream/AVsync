@@ -16,7 +16,6 @@ sync_lr: 0.01
 sync_gamma: 0.9
 gpu: True
 wandb: False
-batch_first: True
 
 train_list: "metadata/train.txt"
 val_list: "metadata/val.txt"

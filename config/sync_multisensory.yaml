@@ -1,0 +1,43 @@
+project_name: "Multisensory"
+mode: "train"
+#pretrain_model: "pretrain_model/LRS2_multi.pth"
+pretrain_model: "pretrain_model/LRW_multi.pth"
+#pretrain_model: "pretrain_model/lab_multi.pth"
+#pretrain_model: ~
+exp_dir: "exp_multi"
+exp_num: "000"
+save_step: 1
+valid_step: 1
+
+epoch: 1000
+batch_size: 16
+num_workers: 16
+sync_lr: 0.0007
+sync_gamma: 0.99
+gpu: False
+wandb: False
+
+tmp_flag: False
+
+#train_list:  "metadata/LRS2_train.txt"
+#val_list:      "metadata/LRS2_val.txt"
+#test_list:    "metadata/LRS2_test.txt"
+test_list:    "metadata/tmp_LRW.txt"
+#train_list:  "metadata/avspeech_train.txt"
+#val_list:      "metadata/avspeech_val.txt"
+#test_list:    "metadata/avspeech_test.txt"
+train_list: "metadata/lab_train_3090.txt"
+#val_list:   "metadata/lab_val_3090.txt"
+#test_list:  "metadata/lab_test_3090.txt"
+#img_size: [1280,720]
+img_size: 224
+face_size: 0
+lip_emb: 256
+voice_emb: 256
+lmk_emb: 40
+n_mfcc: 0
+tgt_frame_num: 25
+tgt_fps: 25
+
+margin: 1.0
+stride: 2
