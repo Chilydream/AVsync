@@ -14,8 +14,8 @@ from utils.data_utils.LabLmk import LabLmkDataLoader
 from utils.data_utils.LabLmkWav import LabLmkWavDataLoader
 from utils.data_utils.LabRaw import LabDataLoader
 
-sys.path.append('/home/tliu/fsx/project/AVsync/third_party/yolo')
-sys.path.append('/home/tliu/fsx/project/AVsync/third_party/HRNet')
+sys.path.append('/home/u2020104180/project/AVsync/third_party/yolo')
+sys.path.append('/home/u2020104180/project/AVsync/third_party/HRNet')
 
 from model.Lmk2LipModel import Lmk2LipModel
 from model.VGGModel import VGG6_speech

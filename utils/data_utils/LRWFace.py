@@ -63,7 +63,7 @@ class LRWFaceDataset(Dataset):
 	def __getitem__(self, item):
 		mp4_name = self.file_list[item]
 		wav_name = mp4_name[:-3]+'wav'
-		face_name = mp4_name.replace('/home/tliu/fsx', '/hdd1').replace('mp4', 'face')
+		face_name = mp4_name.replace('/home/u2020104180', '/hdd1').replace('mp4', 'face')
 		if self.n_mfcc<=0:
 			a_wav = get_wav(filename=wav_name)
 		else:

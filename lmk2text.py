@@ -13,8 +13,8 @@ import sys
 
 from utils.data_utils.LRWImageLmkTriplet import LRWImageLmkTripletDataLoader
 
-sys.path.append('/home/tliu/fsx/project/AVsync/third_party/yolo')
-sys.path.append('/home/tliu/fsx/project/AVsync/third_party/HRNet')
+sys.path.append('/home/u2020104180/project/AVsync/third_party/yolo')
+sys.path.append('/home/u2020104180/project/AVsync/third_party/HRNet')
 
 from model.Lip2TModel import Lip2T_fc_Model
 from model.Lmk2LipModel import Lmk2LipModel

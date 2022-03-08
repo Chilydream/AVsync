@@ -30,7 +30,7 @@ def get_LRW_meta(metafile, mode):
 			face_list.sort()
 			for filename in face_list:
 				new_filename = filename.replace("\\", "/")
-				mp4name = new_filename.replace('/hdd1', '/home/tliu/fsx').replace('face', 'mp4')
+				mp4name = new_filename.replace('/hdd1', '/home/u2020104180').replace('face', 'mp4')
 				print(f'{word}\t{mp4name}', file=fw)
 
 
