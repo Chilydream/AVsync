@@ -194,7 +194,6 @@ def main():
 	                             tgt_fps=args.tgt_fps,
 	                             resolution=args.img_size,
 	                             wav_hz=16000,
-	                             avspeech_flag=args.tmp_flag,
 	                             is_train=True, )
 	valid_loader = LabDataLoader(args.val_list, batch_size,
 	                             num_workers=args.num_workers,
@@ -202,7 +201,6 @@ def main():
 	                             tgt_fps=args.tgt_fps,
 	                             resolution=args.img_size,
 	                             wav_hz=16000,
-	                             avspeech_flag=args.tmp_flag,
 	                             is_train=False, )
 	loader_timer.update(time.time())
 	print(f'Batch Num in Train Loader: {len(train_loader)}')
@@ -229,7 +227,6 @@ def main():
 			                            tgt_fps=args.tgt_fps,
 			                            resolution=args.img_size,
 			                            wav_hz=16000,
-			                            avspeech_flag=args.tmp_flag,
 			                            is_train=False, )
 			evaluate(model_ms,
 			         criterion_class,

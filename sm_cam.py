@@ -150,7 +150,6 @@ def main():
 	                             tgt_fps=args.tgt_fps,
 	                             resolution=args.img_size,
 	                             wav_hz=16000,
-	                             avspeech_flag=args.tmp_flag,
 	                             is_train=False, )
 	# valid_loader = LabDataLoader(args.val_list, 1,
 	#                              num_workers=args.num_workers,
@@ -166,7 +165,6 @@ def main():
 	                             tgt_fps=args.tgt_fps,
 	                             resolution=args.img_size,
 	                             wav_hz=16000,
-	                             avspeech_flag=args.tmp_flag,
 	                             is_train=False, )
 
 	for idx, data in enumerate(test_loader):
