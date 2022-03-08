@@ -27,5 +27,5 @@ export PATH=/opt/app/anaconda3/bin:$PATH
 source activate torch110
 
 ### 执行你的作业
-### salloc --nodes=1 --ntasks=2 --partition=cpu --time=00:05:00 --comment=cross_modal
+### salloc --nodes=1 --partition=tesla --time=00:30:00 --comment=cross_modal
 python GetMetaData.py

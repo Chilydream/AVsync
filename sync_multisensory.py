@@ -15,8 +15,8 @@ from model.MultiSensory import MultiSensory
 from utils.data_utils.LRWFace import LRWFaceDataLoader
 from utils.data_utils.LabRaw import LabDataLoader
 
-sys.path.append('/home/tliu/fsx/project/AVsync/third_party/yolo')
-sys.path.append('/home/tliu/fsx/project/AVsync/third_party/HRNet')
+sys.path.append('/home/u2020104180/project/AVsync/third_party/yolo')
+sys.path.append('/home/u2020104180/project/AVsync/third_party/HRNet')
 
 from utils.crop_face import crop_face_batch_seq, crop_face_seq
 from utils.accuracy import get_gt_label, get_rand_idx
