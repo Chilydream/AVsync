@@ -102,12 +102,10 @@ def word_split():
 
 def get_LRS2_meta(metafile, mode):
 	assert mode in ('train', 'val', 'test')
-	dataset_dir = '/home/tliu/fsx/dataset/LRS2'
+	dataset_dir = '/home/u2020104180/dataset/LRS2'
 	main_dir = os.path.join(dataset_dir, 'main')
-	pretrain_dir = os.path.join(dataset_dir, 'pretrain')
 	with open(metafile, 'w') as fw:
 		video_list = glob.glob(os.path.join(main_dir, '*', '*.mp4'))
-		# video_list.extend(glob.glob(os.path.join(pretrain_dir, '*', '*.mp4')))
 		video_list.sort()
 		for i, filename in tqdm.tqdm(enumerate(video_list)):
 			new_filename = filename.replace('\\', '/')
