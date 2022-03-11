@@ -34,6 +34,10 @@ min_level_db: -100
 ref_level_db: 20
 fmin: 55
 fmax: 7600
+
+num_mels: 80
+rescale: True
+rescaling_max: 0.9
 use_lws: False
 n_fft: 800
 hop_size: 200
