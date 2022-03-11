@@ -50,6 +50,9 @@ class LRS2FaceDataset(Dataset):
 
 		return match_id, mismatch_id
 
+	def get_frame_id(self, frame):
+		return int(os.path.basename(frame).split('.')[0])
+
 	def get_window(self, start_frame):
 		start_id = self.get_frame_id(start_frame)
 		vidname = os.path.dirname(start_frame)
