@@ -16,10 +16,10 @@ from utils.GetDataFromFile import make_image_square
 
 
 class LRS2FaceDataset(Dataset):
-	def __init__(self, dataset_file, seq_len, img_size):
+	def __init__(self, dataset_file, tgt_frame_num, img_size):
 		super(LRS2FaceDataset, self).__init__()
 		self.dataset_file_name = dataset_file
-		self.seq_len = seq_len
+		self.seq_len = tgt_frame_num
 		self.img_size = img_size
 		self.file_list = []
 		self.face_num_list = []

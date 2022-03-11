@@ -155,10 +155,10 @@ def main():
 	loader_timer.set_start_time(time.time())
 
 	train_dataset = LRS2FaceDataset(args.train_list,
-	                                seq_len=args.seq_len,
+	                                tgt_frame_num=args.tgt_frame_num,
 	                                img_size=args.img_size)
 	valid_dataset = LRS2FaceDataset(args.valid_list,
-	                                seq_len=args.seq_len,
+	                                tgt_frame_num=args.tgt_frame_num,
 	                                img_size=args.img_size)
 	train_loader = DataLoader(dataset=train_dataset,
 	                          num_workers=args.num_workers,
@@ -188,8 +188,8 @@ def main():
 		else:
 			del valid_loader
 			test_dataset = LRS2FaceDataset(args.test_list,
-			                                seq_len=args.seq_len,
-			                                img_size=args.img_size)
+			                               tgt_frame_num=args.tgt_frame_num,
+			                               img_size=args.img_size)
 			test_loader = DataLoader(dataset=test_dataset,
 			                          num_workers=args.num_workers,
 			                          shuffle=False,
