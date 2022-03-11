@@ -1,0 +1,32 @@
+project_name: "SyncNet_wav2lip"
+mode: "train"
+#pretrain_model: "pretrain_model/LRW_multi.pth"
+pretrain_model: ~
+exp_dir: "exp_syncnet_wav2lip"
+exp_num: "000"
+save_step: 1
+valid_step: 1
+
+epoch: 100
+batch_size: 64
+num_workers: 16
+sync_lr: 0.00039
+sync_gamma: 0.99
+gpu: True
+wandb: True
+
+train_list:  "metadata/LRS2_train.txt"
+val_list:      "metadata/LRS2_val.txt"
+test_list:    "metadata/LRS2_test.txt"
+#img_size: [1280,720]
+img_size: 112
+face_size: 0
+lip_emb: 256
+voice_emb: 256
+lmk_emb: 40
+n_mfcc: 0
+tgt_frame_num: 5
+tgt_fps: 25
+
+margin: 1.0
+stride: 2

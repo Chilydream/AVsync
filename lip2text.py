@@ -137,12 +137,12 @@ def main():
 	loader_timer.set_start_time(time.time())
 	train_loader = LRWImageTripletDataLoader(args.train_list, batch_size,
 	                                         num_workers=args.num_workers,
-	                                         resolution=args.resolution,
+	                                         resolution=args.img_size,
 	                                         is_train=True, max_size=0)
 
 	valid_loader = LRWImageTripletDataLoader(args.val_list, batch_size,
 	                                         num_workers=args.num_workers,
-	                                         resolution=args.resolution,
+	                                         resolution=args.img_size,
 	                                         is_train=False, max_size=0)
 	loader_timer.update(time.time())
 	print(f'Batch Num in Train Loader: {len(train_loader)}')

@@ -135,13 +135,13 @@ def main():
 	train_loader = LRWImageDataLoader(args.train_list, batch_size,
 	                                  num_workers=args.num_workers,
 	                                  seq_len=0,
-	                                  resolution=args.resolution,
+	                                  resolution=args.img_size,
 	                                  is_train=True, max_size=0)
 
 	valid_loader = LRWImageTripletDataLoader(args.val_list, batch_size,
 	                                         num_workers=args.num_workers,
 	                                         seq_len=0,
-	                                         resolution=args.resolution,
+	                                         resolution=args.img_size,
 	                                         is_train=False, max_size=0)
 	loader_timer.update(time.time())
 	print(f'Batch Num in Train Loader: {len(train_loader)}')
@@ -169,7 +169,7 @@ def main():
 			del valid_loader
 			test_loader = LRWImageTripletDataLoader(args.test_list, batch_size,
 			                                        num_workers=args.num_workers,
-			                                        seq_len=0, resolution=args.resolution,
+			                                        seq_len=0, resolution=args.img_size,
 			                                        is_train=False, max_size=0)
 			with torch.no_grad():
 				model_img2lip.eval()

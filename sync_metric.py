@@ -187,7 +187,7 @@ def main():
 			test_loader = LRWDataLoader(args.test_list, batch_size,
 			                            num_workers=args.num_workers,
 			                            n_mfcc=args.n_mfcc,
-			                            resolution=args.resolution,
+			                            resolution=args.img_size,
 			                            seq_len=args.tgt_frame_num,
 			                            is_train=False, max_size=0)
 			with torch.no_grad():
