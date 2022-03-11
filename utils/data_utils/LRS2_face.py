@@ -33,7 +33,7 @@ class LRS2FaceDataset(Dataset):
 				items = line.strip().split('\t')
 				filename, face_num = items
 				self.file_list.append(filename)
-				self.face_num_list.append(face_num)
+				self.face_num_list.append(int(face_num))
 		self.nfile = len(self.file_list)
 
 	def get_rand_start_frame(self, frame_num):

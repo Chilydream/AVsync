@@ -157,7 +157,7 @@ def main():
 	train_dataset = LRS2FaceDataset(args.train_list,
 	                                tgt_frame_num=args.tgt_frame_num,
 	                                img_size=args.img_size)
-	valid_dataset = LRS2FaceDataset(args.valid_list,
+	valid_dataset = LRS2FaceDataset(args.val_list,
 	                                tgt_frame_num=args.tgt_frame_num,
 	                                img_size=args.img_size)
 	train_loader = DataLoader(dataset=train_dataset,
