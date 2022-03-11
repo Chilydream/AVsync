@@ -19,7 +19,7 @@ class LRS2FaceDataset(Dataset):
 	def __init__(self, dataset_file, tgt_frame_num, img_size):
 		super(LRS2FaceDataset, self).__init__()
 		self.dataset_file_name = dataset_file
-		self.seq_len = tgt_frame_num
+		self.tgt_frame_num = tgt_frame_num
 		self.img_size = img_size
 		self.file_list = []
 		self.face_num_list = []
@@ -32,20 +32,23 @@ class LRS2FaceDataset(Dataset):
 			for idx, line in enumerate(fr.readlines()):
 				items = line.strip().split('\t')
 				filename, face_num = items
+				face_num = int(face_num)
+				if face_num<=3*self.tgt_frame_num:
+					continue
 				self.file_list.append(filename)
-				self.face_num_list.append(int(face_num))
+				self.face_num_list.append(face_num)
 		self.nfile = len(self.file_list)
 
 	def get_rand_start_frame(self, frame_num):
-		match_id = np.random.randint(0, frame_num-self.seq_len)
-		match_end = match_id+self.seq_len
-		if match_id<=self.seq_len:
-			mismatch_id = np.random.randint(match_end, frame_num-self.seq_len)
-		elif match_end+self.seq_len>=frame_num:
-			mismatch_id = np.random.randint(0, match_id-self.seq_len)
+		match_id = np.random.randint(0, frame_num-self.tgt_frame_num)
+		match_end = match_id+self.tgt_frame_num
+		if match_id<=self.tgt_frame_num:
+			mismatch_id = np.random.randint(match_end, frame_num-self.tgt_frame_num)
+		elif match_end+self.tgt_frame_num>=frame_num:
+			mismatch_id = np.random.randint(0, match_id-self.tgt_frame_num)
 		else:
-			mismatch_id0 = np.random.randint(0, match_id-self.seq_len)
-			mismatch_id1 = np.random.randint(match_end, frame_num-self.seq_len)
+			mismatch_id0 = np.random.randint(0, match_id-self.tgt_frame_num)
+			mismatch_id1 = np.random.randint(match_end, frame_num-self.tgt_frame_num)
 			mismatch_id = mismatch_id0 if np.random.randint(0, 2) == 0 else mismatch_id1
 
 		return match_id, mismatch_id
@@ -58,7 +61,7 @@ class LRS2FaceDataset(Dataset):
 		vidname = os.path.dirname(start_frame)
 
 		window_fnames = []
-		for frame_id in range(start_id, start_id+self.seq_len):
+		for frame_id in range(start_id, start_id+self.tgt_frame_num):
 			frame = os.path.join(vidname, '{}.npy'.format(frame_id))
 			if not os.path.isfile(frame):
 				# todo: 提前去掉不全面的数据，减少读取时间
