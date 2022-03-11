@@ -35,3 +35,12 @@ ref_level_db: 20
 fmin: 55
 fmax: 7600
 use_lws: False
+n_ftt: 800
+hop_size: 200
+win_size: 800
+sample_rate: 16000
+frame_shift_ms: ~
+signal_normalization: True
+allow_clipping_in_normalization: True
+symmetric_mels: True
+max_abs_value: 4.
