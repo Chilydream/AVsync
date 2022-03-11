@@ -27,3 +27,10 @@ lip_emb: 256
 voice_emb: 256
 tgt_frame_num: 5
 tgt_fps: 25
+
+preemphasize: True
+preemphasis: 0.97
+min_level_db: -100
+ref_level_db: 20
+fmin: 55
+fmax: 7600
