@@ -69,6 +69,16 @@ class LRS2FaceDataset(Dataset):
 			window_fnames.append(frame)
 		return window_fnames
 
+	def crop_audio_window(self, spec, start_frame):
+		# num_frames = (T x hop_size * fps) / sample_rate
+		tgt_fps = 25
+		start_frame_num = self.get_frame_id(start_frame)
+		start_idx = int(80.*(start_frame_num/float(tgt_fps)))
+
+		end_idx = start_idx+self.syncnet_mel_step_size
+
+		return spec[start_idx: end_idx, :]
+
 	def __getitem__(self, item):
 		while 1:
 			idx = random.randint(0, len(self.file_list)-1)
