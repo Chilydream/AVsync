@@ -65,8 +65,8 @@ class LRS2FaceDataset(Dataset):
 
 	def __getitem__(self, item):
 		while 1:
-			idx = random.randint(0, len(self.all_videos)-1)
-			vidname, frame_num = self.all_videos[idx]
+			idx = random.randint(0, len(self.file_list)-1)
+			vidname, frame_num = self.file_list[idx], self.face_num_list[idx]
 
 			match_id, mismatch_id = self.get_rand_start_frame(frame_num)
 			img_npy = os.path.join(vidname, f'{match_id}.npy')
