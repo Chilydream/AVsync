@@ -9,8 +9,8 @@ save_step: 1
 valid_step: 1
 
 epoch: 100
-batch_size: 4
-num_workers: 16
+batch_size: 256
+num_workers: 32
 sync_lr: 0.00039
 sync_gamma: 0.99
 gpu: True
@@ -23,8 +23,6 @@ train_list:  "metadata/train.txt"
 val_list:    "metadata/val.txt"
 test_list:   "metadata/test.txt"
 img_size: 96
-lip_emb: 256
-voice_emb: 256
 tgt_frame_num: 5
 tgt_fps: 25
 
