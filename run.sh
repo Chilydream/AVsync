@@ -15,8 +15,8 @@
 #SBATCH --ntasks=16
 
 ### 指定该作业在哪个队列上执行
-### 目前可用的队列有 cpu/fat/titan/tesla
-#SBATCH --partition=titan
+### 目前可用的队列有 cpu/fat/2080ti/titan/tesla
+#SBATCH --partition=2080ti
 
 ### 申请一块GPU卡，一块GPU卡默认配置了一定数量的CPU核
 ### 注意！程序没有使用多卡并行优化的，下面参数写1！不要多写，多写也不会加速程序！
