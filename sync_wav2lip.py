@@ -40,19 +40,10 @@ from third_party.yolo.yolo_models.yolo import Model as yolo_model
 def lrw_run(model_sync, data, args):
 	run_device = torch.device("cuda:0" if args.gpu else "cpu")
 	a_img, a_mel, label_gt = data
-	print(a_img.shape)
-	# torch.Size([64, 15, 56, 112])
-	# torch.Size([256, 15, 48, 96])
-	print(a_mel.shape)
-	# torch.Size([64, 1, 80, 4])
-	# torch.Size([256, 1, 80, 16])
-	print(label_gt.shape)
 	a_img = a_img.to(run_device)
 	a_mel = a_mel.to(run_device)
 	label_gt = label_gt.to(run_device)
 	audio_emb, visual_emb = model_sync(a_mel, a_img)
-	print(audio_emb.shape)
-	print(visual_emb.shape)
 
 	return label_gt, audio_emb, visual_emb
 

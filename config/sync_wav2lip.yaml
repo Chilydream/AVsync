@@ -22,7 +22,7 @@ wandb: False
 train_list:  "metadata/train.txt"
 val_list:    "metadata/val.txt"
 test_list:   "metadata/test.txt"
-img_size: 112
+img_size: 96
 lip_emb: 256
 voice_emb: 256
 tgt_frame_num: 5
