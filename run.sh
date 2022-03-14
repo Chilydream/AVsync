@@ -34,4 +34,4 @@ nvidia-smi
 ### 执行你的作业
 ### salloc --nodes=1 --partition=titan --time=10:00:00 --comment=cross_modal --gpus=1
 ### salloc --nodes=1 --ntasks=2 --partition=cpu --time=10:00:00 --comment=cross_modal
-python sync_wav2lip.py
+python -u sync_wav2lip.py
