@@ -20,13 +20,14 @@ class LRS2FaceDataset(Dataset):
 		super(LRS2FaceDataset, self).__init__()
 		self.dataset_file_name = dataset_file
 		self.tgt_frame_num = tgt_frame_num
+		self.tgt_fps = 25
 		self.img_size = img_size
 		self.file_list = []
 		self.face_num_list = []
 		self.nfile = 0
 
 		self.sample_rate = 16000
-		self.syncnet_mel_step_size = 8
+		self.syncnet_mel_step_size = 16
 
 		with open(dataset_file) as fr:
 			for idx, line in enumerate(fr.readlines()):
@@ -71,9 +72,8 @@ class LRS2FaceDataset(Dataset):
 
 	def crop_audio_window(self, spec, start_frame):
 		# num_frames = (T x hop_size * fps) / sample_rate
-		tgt_fps = 25
 		start_frame_num = self.get_frame_id(start_frame)
-		start_idx = int(80.*(start_frame_num/float(tgt_fps)))
+		start_idx = int(80.*(start_frame_num/float(self.tgt_fps)))
 
 		end_idx = start_idx+self.syncnet_mel_step_size
 
