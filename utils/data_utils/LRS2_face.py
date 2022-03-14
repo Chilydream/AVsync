@@ -26,7 +26,7 @@ class LRS2FaceDataset(Dataset):
 		self.nfile = 0
 
 		self.sample_rate = 16000
-		self.syncnet_mel_step_size = 4
+		self.syncnet_mel_step_size = 8
 
 		with open(dataset_file) as fr:
 			for idx, line in enumerate(fr.readlines()):

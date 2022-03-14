@@ -11,6 +11,7 @@ import matplotlib.pyplot as plt
 from torchvision.models.resnet import resnet18
 
 from model.MultiSensory import MultiSensory
+from model.syncnet import SyncNet_color
 from utils.GetConsoleArgs import TrainOptions
 from utils.GetDataFromFile import get_frame_and_wav_cv2
 from utils.data_utils.LabRaw import LabDataLoader
@@ -140,6 +141,7 @@ class GradCAM:
 def main():
 	args = TrainOptions('config/sync_multisensory.yaml').parse()
 	model_ms = MultiSensory(sound_rate=16000, image_fps=25)
+	model_sync = SyncNet_color()
 	grad_cam = GradCAM(model_ms, 'merge_block5', (224, 224), 2, [0.485, 0.456, 0.406], [0.229, 0.224, 0.225])
 
 	model_ckpt = torch.load(args.pretrain_model, map_location='cpu')
